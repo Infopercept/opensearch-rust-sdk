@@ -1,33 +1,56 @@
 {
-  description = "starter for packages wit nix and rust";
+  description = "Crate for interacting with OpenSearch nodes";
 
-  inputs = {
-    nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
-    rust-overlay.url = "github:oxalica/rust-overlay";
-    flake-utils.url = "github:numtide/flake-utils";
-  };
+  nixConfig.bash-prompt = "[nix(opensearch-sdk-rs)] ";
+  inputs = { nixpkgs.url = "github:nixos/nixpkgs/23.11"; };
 
-  # add "self" if useful here
-  outputs = { nixpkgs, rust-overlay, flake-utils, ... }:
-    flake-utils.lib.eachDefaultSystem (system:
-      let
-        overlays = [ (import rust-overlay) ];
-        pkgs = import nixpkgs { inherit system overlays; };
-      in with pkgs; {
-        devShells.default = mkShell {
-          buildInputs = [
-            rust-analyzer
-            cargo
-            cargo-edit
+  outputs = { self, nixpkgs }:
+    let
+      pkgs = {
+        x86_64-darwin = nixpkgs.legacyPackages.x86_64-darwin.pkgs;
+        aarch64-darwin = nixpkgs.legacyPackages.aarch64-darwin.pkgs;
+        x86_64-linux = nixpkgs.legacyPackages.x86_64-linux.pkgs;
+        aarch64-linux = nixpkgs.legacyPackages.aarch64-linux.pkgs;
+      };
 
-            # Other potentially useful packages
-            # jq
-            # openssl
-            # pkg-config
+      commonBuildInputs = pkgs:
+        with pkgs; [
+          jdk17
+          nixpkgs-fmt
+          protobuf
+          libiconv
+          just
+          rustc
+          rustfmt
+          cargo
+        ];
 
-            (rust-bin.selectLatestNightlyWith (toolchain:
-              toolchain.default.override { extensions = [ "rust-src" ]; }))
-          ];
+      darwinBuildInputs = pkgs: commonBuildInputs pkgs ++ [ pkgs.darwin.apple_sdk.frameworks.Security ];
+
+      devShells = {
+        x86_64-darwin.default = pkgs.x86_64-darwin.mkShell {
+          buildInputs = darwinBuildInputs pkgs.x86_64-darwin;
         };
-      });
+
+        aarch64-darwin.default = pkgs.aarch64-darwin.mkShell {
+          buildInputs = darwinBuildInputs pkgs.aarch64-darwin;
+        };
+
+        x86_64-linux.default = pkgs.x86_64-linux.mkShell {
+          buildInputs = commonBuildInputs pkgs.x86_64-linux;
+        };
+
+        aarch64-linux.default = pkgs.aarch64-linux.mkShell {
+          buildInputs = commonBuildInputs pkgs.aarch64-linux;
+        };
+      };
+    in
+    {
+      formatter.x86_64-darwin = pkgs.x86_64-darwin.nixpkgs-fmt;
+      formatter.aarch64-darwin = pkgs.aarch64-darwin.nixpkgs-fmt;
+      formatter.x86_64-linux = pkgs.x86_64-linux.nixpkgs-fmt;
+      formatter.aarch64-linux = pkgs.aarch64-linux.nixpkgs-fmt;
+
+      inherit devShells;
+    };
 }

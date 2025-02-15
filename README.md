@@ -1,13 +1,9 @@
-# rust nix templ
+# opensearch-sdk-rs
 
-A simple Rust crate template GitHub Actions workflows and a Nix flake for development environment. 
+WIP attempt to implement an OpenSearch Extension SDK in Rust.
 
-The Github Actions run common cargo commands to validate package builds, tests, conforms to formatting using a [Nix Dev Environment](https://zero-to-nix.com/concepts/dev-env). 
+Inspired by https://github.com/opensearch-project/opensearch-sdk-py and https://www.youtube.com/watch?v=TZy7ViZbbHc
 
-Benefits of using this is that it ensures your package and development shell can build the project.
-
-## Resources
-
-1. Nix flakes and dev shells: https://fasterthanli.me/series/building-a-rust-service-with-nix/part-10
-2. Nix Concepts: https://zero-to-nix.com/concepts
-3. Official Nix Flakes Docs: https://nixos.wiki/wiki/Flakes
+1. https://opensearch.org/blog/introducing-extensions-for-opensearch
+2. https://github.com/opensearch-project/opensearch-sdk-py
+3. https://github.com/opensearch-project/opensearch-sdk-java
