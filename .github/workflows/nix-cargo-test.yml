@@ -1,0 +1,25 @@
+name: "Test rust package in Nix dev-shell"
+permissions:
+  contents: read
+on:
+  pull_request:
+  push:
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+    - uses: cachix/install-nix-action@v20
+      with:
+        nix_path: nixpkgs=channel:nixos-unstable
+    - name: Install Rust
+      uses: dtolnay/rust-toolchain@master
+      with:
+        toolchain: beta
+        components: rustfmt
+    # https://nixos.org/manual/nix/stable/command-ref/new-cli/nix3-develop.html
+    - run: nix develop --system x86_64-linux
+    - run: nix develop --command bash -c "cargo check"
+    - run: nix develop --command bash -c "cargo build"
+    - run: nix develop --command bash -c "cargo test"
+    - run: nix develop --command bash -c "cargo fmt --check"
