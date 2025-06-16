@@ -1,0 +1,46 @@
+# Multi-stage build for Rust OpenSearch Extension
+FROM rust:1.75 as builder
+
+WORKDIR /app
+
+# Copy manifests
+COPY Cargo.toml Cargo.lock ./
+COPY build.rs ./
+
+# Copy source code
+COPY src/ ./src/
+COPY examples/ ./examples/
+
+# Build dependencies first (for better caching)
+RUN cargo build --release
+
+# Runtime stage
+FROM debian:bookworm-slim
+
+# Install necessary runtime dependencies
+RUN apt-get update && apt-get install -y \
+    ca-certificates \
+    libssl3 \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+# Copy the built binary from builder stage
+COPY --from=builder /app/target/release/server /app/opensearch-extension
+COPY --from=builder /app/examples/ /app/examples/
+
+# Create non-root user
+RUN useradd -r -s /bin/false extension && \
+    chown -R extension:extension /app
+
+USER extension
+
+# Expose the extension port
+EXPOSE 1234
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+    CMD nc -z localhost 1234 || exit 1
+
+# Run the extension
+CMD ["/app/opensearch-extension"]
