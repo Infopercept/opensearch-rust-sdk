@@ -26,13 +26,13 @@ setup: start-cluster build register-extension
 
 start-cluster:
 	@echo "🚀 Starting OpenSearch cluster with extensions enabled..."
-	cd resources/compose && docker-compose -f docker-compose-host-extension.yml up -d
+	cd resources/compose && docker-compose -f docker-compose-prod.yml up -d
 	@echo "⏳ Waiting for cluster to be ready..."
 	sleep 30
 
 stop-cluster:
 	@echo "🛑 Stopping OpenSearch cluster..."
-	cd resources/compose && docker-compose -f docker-compose-host-extension.yml down
+	cd resources/compose && docker-compose -f docker-compose-prod.yml down
 
 restart-cluster: stop-cluster start-cluster
 
@@ -111,11 +111,11 @@ extensions-list:
 # Logs and debugging
 extension-logs:
 	@echo "📄 Extension logs (if running via docker-compose)..."
-	cd resources/compose && docker-compose -f docker-compose-host-extension.yml logs opensearch-extension-rust
+	cd resources/compose && docker-compose -f docker-compose-prod.yml logs opensearch-extension-rust
 
 cluster-logs:
 	@echo "📄 OpenSearch cluster logs..."
-	cd resources/compose && docker-compose -f docker-compose-host-extension.yml logs opensearch-node1 opensearch-node2
+	cd resources/compose && docker-compose -f docker-compose-prod.yml logs opensearch-node1 opensearch-node2
 
 # Complete teardown
 clean: stop-cluster
