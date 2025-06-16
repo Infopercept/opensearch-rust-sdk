@@ -1,4 +1,4 @@
-# Docker Compose for OpenSearch with Extensions (Extension runs on host)
+# Docker Compose for OpenSearch with Extensions (Bridge Network)
 services:
   opensearch-node1:
     image: opensearchproject/opensearch:3.0.0
@@ -82,12 +82,17 @@ volumes:
 networks:
   opensearch-net:
     driver: bridge
-    # Use host networking mode to allow extension on localhost:1234 to communicate
-    ipam:
-      config:
-        - subnet: 172.20.0.0/16
 
-# Extension runs on host - use these commands:
-# 1. Start OpenSearch: docker-compose -f docker-compose-host-extension.yml up -d
-# 2. Start Extension: cargo run (or just run)
-# 3. Register Extension: just loadext_secure
+# Extension Communication Notes:
+# - Your extension on host localhost:1234 can communicate with OpenSearch via:
+#   - Node 1: https://localhost:9200 (mapped from container)
+#   - Node 2: https://opensearch-node2:9200 (internal only)
+# - Use the bridge network for stable container-to-container communication
+# - Extension registration should target https://localhost:9200
+
+# Usage Commands:
+# 1. Set password: export OPENSEARCH_INITIAL_ADMIN_PASSWORD=Anubhav@321
+# 2. Start cluster: docker-compose -f docker-compose-host-extension.yml up -d
+# 3. Verify cluster: curl -k -u admin:Anubhav@321 https://localhost:9200/_cluster/health
+# 4. Start your extension: cargo run
+# 5. Register extension: just loadext_secure
