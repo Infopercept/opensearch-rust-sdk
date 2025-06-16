@@ -1,8 +1,5 @@
-use byteorder::{NetworkEndian, ReadBytesExt, WriteBytesExt};
-use std::io::{self, BufRead, BufReader, Read, Write};
-// TODO: rewrite using Serde
-
-const TAG_BYTES: &[u8; 2] = b"ES";
+use byteorder::WriteBytesExt;
+use std::io::{self, Read, Write};
 
 pub trait Serialize {
     /// Serialize to a `Write`able buffer
@@ -26,8 +23,6 @@ pub enum Request {
 }
 
 /// Encode the request type as a single byte (as long as we don't exceed 255 types)
-///
-/// We use `&Request` since we don't actually need to own or mutat the request fields
 impl From<&Request> for u8 {
     fn from(req: &Request) -> Self {
         match req {
@@ -42,27 +37,42 @@ impl From<&Request> for u8 {
 impl Serialize for Request {
     /// Serialize Request to bytes to send to OpenSearch server
     fn serialize(&self, buf: &mut impl Write) -> io::Result<usize> {
-        // may not be writing this correctly
-        buf.write_u8(self.into())?; // Message type byte
+        let type_byte: u8 = self.into();
+        buf.write_u8(type_byte)?;
 
-        todo!("Finish implemetnation of serialize")
+        let content = match self {
+            Request::RequestResponse(s) => s,
+            Request::TransportError(s) => s,
+            Request::Compress(s) => s,
+            Request::Handshake(s) => s,
+        };
+
+        let content_bytes = content.as_bytes();
+        buf.write_all(content_bytes)?;
+
+        Ok(1 + content_bytes.len())
     }
 }
 
 impl Deserialize for Request {
     type Output = Request;
 
-    /// Deserialize Request from bytes ( to receive from TcpStream)
+    /// Deserialize Request from bytes (to receive from TcpStream)
     fn deserialize(buf: &mut impl Read) -> io::Result<Self::Output> {
-        let mut buf_reader = BufReader::new(buf);
-        let mut parse_location: usize = 0;
-        let mut buffer: Vec<u8> = Vec::new();
+        let mut type_buf = [0u8; 1];
+        buf.read_exact(&mut type_buf)?;
 
-        todo!();
-        // match buf.read_u8()? {
-        //     Ok(_) => {
-        //     },
-        //     _ => Err(io::Error::new(io::ErrorKind::InvalidData, "Invalid Request Header Bytes"))
-        // }
+        let mut content_buf = Vec::new();
+        buf.read_to_end(&mut content_buf)?;
+        let content = String::from_utf8(content_buf)
+            .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))?;
+
+        match type_buf[0] {
+            1 => Ok(Request::RequestResponse(content)),
+            2 => Ok(Request::TransportError(content)),
+            4 => Ok(Request::Compress(content)),
+            8 => Ok(Request::Handshake(content)),
+            _ => Err(io::Error::new(io::ErrorKind::InvalidData, "Invalid request type")),
+        }
     }
 }
