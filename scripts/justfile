@@ -4,6 +4,7 @@ alias t := test
 
 set dotenv-load := true
 
+# Core development commands
 build: fmt
 	cargo build
 
@@ -19,9 +20,43 @@ fmt:
 clippy:
 	cargo clippy --all --all-targets --all-features
 
-# NOTE: does not currently work because Docker images are only available for OS version 2.x, but we need 3.x
+# Extension development workflow
+setup: start-cluster build register-extension
+	@echo "🎉 Complete extension development environment ready!"
+
+start-cluster:
+	@echo "🚀 Starting OpenSearch cluster with extensions enabled..."
+	cd resources/compose && docker-compose -f docker-compose-host-extension.yml up -d
+	@echo "⏳ Waiting for cluster to be ready..."
+	sleep 30
+
+stop-cluster:
+	@echo "🛑 Stopping OpenSearch cluster..."
+	cd resources/compose && docker-compose -f docker-compose-host-extension.yml down
+
+restart-cluster: stop-cluster start-cluster
+
+# Extension management commands
+register-extension: loadext_secure
+
+check-extension-health:
+	@echo "🏥 Checking extension health..."
+	@if netstat -an | grep -q ":1234.*LISTEN"; then \
+		echo "✅ Extension is running on port 1234"; \
+	else \
+		echo "❌ Extension is not running"; \
+	fi
+
+test-extension: getext
+
+# Development cycle
+dev: build
+	@echo "🔄 Starting development cycle..."
+	cargo run &
+	@echo "Extension started. Use 'just register-extension' to register with OpenSearch"
+
+# Docker-based OpenSearch commands (keeping existing functionality)
 runos:
-	# finch vm start
 	finch run -p 9200:9200 -p 9600:9600 \
 		-e "discovery.type=single-node" \
 		-e "OPENSEARCH_INITIAL_ADMIN_PASSWORD=$PASS" \
@@ -30,12 +65,12 @@ runos:
 buildos:
 	cd ./resources && finch build --build-arg JDK_ARCH=x64 -t opensearchext .
 
-# TODO: needs an entrypoint script to cd into build directory and run gradle
 runosdocker:
 	finch run -it -p 9200:9200 -p 9600:9600 \
 		-e "discovery.type=single-node" \
 		-e "OPENSEARCH_INITIAL_ADMIN_PASSWORD=$PASS" \
 		-e "OPENSEARCH_JAVA_OPTS=-Dopensearch.experimental.feature.extensions.enabled=true" opensearchext /bin/bash
+
 runosdockerarm:
 	docker run -it -p 9200:9200 -p 9600:9600 \
 		-e "discovery.type=single-node" \
@@ -47,13 +82,78 @@ buildosarm:
 		--platform linux/arm64 \
 		--build-arg JDK_ARCH=aarch64 -t opensearchext .
 
+# Extension registration commands
 loadext:
 	curl -XPOST "http://localhost:9200/_extensions/initialize" -H "Content-Type:application/json" --data @examples/hello/hello.json
 
 loadext_secure:
+	@echo "📝 Registering extension with OpenSearch (secure)..."
 	curl -ku "admin:$PASS" -XPOST "https://localhost:9200/_extensions/initialize" -H "Content-Type:application/json" --data @examples/hello/hello.json
 
+# Test extension endpoint
 getext:
+	@echo "🧪 Testing extension endpoint..."
 	curl -ku "admin:$PASS" -XGET "https://localhost:9200/_extensions/_hello-world-rs/hello"
+
+# Cluster health and info commands
+cluster-health:
+	@echo "🏥 Checking cluster health..."
+	curl -ku "admin:$PASS" "https://localhost:9200/_cluster/health?pretty"
+
+cluster-settings:
+	@echo "⚙️  Checking cluster settings..."
+	curl -ku "admin:$PASS" "https://localhost:9200/_cluster/settings?pretty"
+
+extensions-list:
+	@echo "📋 Listing registered extensions..."
+	curl -ku "admin:$PASS" "https://localhost:9200/_extensions"
+
+# Logs and debugging
+extension-logs:
+	@echo "📄 Extension logs (if running via docker-compose)..."
+	cd resources/compose && docker-compose -f docker-compose-host-extension.yml logs opensearch-extension-rust
+
+cluster-logs:
+	@echo "📄 OpenSearch cluster logs..."
+	cd resources/compose && docker-compose -f docker-compose-host-extension.yml logs opensearch-node1 opensearch-node2
+
+# Complete teardown
+clean: stop-cluster
+	@echo "🧹 Cleaning up development environment..."
+	docker system prune -f
+	cargo clean
+
+# Show help
+help:
+	@echo "🦀 OpenSearch Rust Extension Development Commands"
+	@echo "================================================"
+	@echo ""
+	@echo "🚀 Quick Start:"
+	@echo "  just setup              - Complete development environment setup"
+	@echo "  just dev               - Start development cycle"
+	@echo ""
+	@echo "📦 Build & Test:"
+	@echo "  just build             - Format and build extension"
+	@echo "  just test              - Run tests"
+	@echo "  just clippy            - Run linter"
+	@echo ""
+	@echo "🔧 Cluster Management:"
+	@echo "  just start-cluster     - Start OpenSearch with extensions"
+	@echo "  just stop-cluster      - Stop OpenSearch cluster"
+	@echo "  just restart-cluster   - Restart OpenSearch cluster"
+	@echo ""
+	@echo "🔌 Extension Management:"
+	@echo "  just register-extension - Register extension with OpenSearch"
+	@echo "  just test-extension    - Test extension endpoint"
+	@echo "  just check-extension-health - Check if extension is running"
+	@echo ""
+	@echo "📊 Monitoring:"
+	@echo "  just cluster-health    - Check cluster health"
+	@echo "  just cluster-settings  - View cluster settings"
+	@echo "  just extensions-list   - List registered extensions"
+	@echo "  just cluster-logs      - View cluster logs"
+	@echo ""
+	@echo "🧹 Cleanup:"
+	@echo "  just clean             - Stop everything and clean up"
 
 #vim:ft=make
