@@ -15,7 +15,6 @@ run:
 
 fmt:
 	cargo fmt --all
-	nix fmt .
 
 clippy:
 	cargo clippy --all --all-targets --all-features
