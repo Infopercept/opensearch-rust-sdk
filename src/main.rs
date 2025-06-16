@@ -1,9 +1,9 @@
-use std::io::Read;
-use std::net::{Ipv4Addr, TcpListener};
+use std::net::{Ipv4Addr, TcpListener, TcpStream};
+use std::io::Write;
 
-use opensearch_sdk_rs::transport::TransportTcpHeader;
+use opensearch_sdk_rs::transport::{TransportTcpHeader, transport_status};
 
-const DEFAULT_PORT: u32 = 7878;
+const DEFAULT_PORT: u32 = 1234;
 
 #[derive(Debug)]
 pub struct Host {
@@ -18,75 +18,125 @@ impl Host {
             port,
         }
     }
+
     pub fn default() -> Host {
         Host {
             address: Ipv4Addr::new(127, 0, 0, 1),
             port: DEFAULT_PORT,
         }
     }
+
     pub fn run(&self) {
-        let listener = TcpListener::bind(format!("{}:{}", &self.address.to_string(), &self.port))
+        let listener = TcpListener::bind(format!("{}:{}", &self.address, &self.port))
             .expect(&format!("Unable to bind to port: {}", &self.port));
+
+        println!("🚀 OpenSearch Extension SDK (Rust) started on {}:{}", self.address, self.port);
+        println!("📡 Waiting for OpenSearch connections...");
+
         let mut count = 0;
 
         for stream in listener.incoming() {
-            // TODO: use actual OpenSearch TCP stream - this one will not work
-            //
-            let stream = stream.unwrap();
-            count += 1;
-            // reading stream from Ok(127.0.0.1:64932)
-            // Parsed header: OpenSearchTcpHeader { message_length: 39, request_id: 25, status: 8, version: 136357827, variable_header_size: 26 }
-            // reading stream from Ok(127.0.0.1:64933)
-            // Unable to parse prefix
-            // Error parsing header: Error { kind: UnexpectedEof, message: "failed to fill whole buffer" }
-            // reading stream from Ok(127.0.0.1:64934)
+            match stream {
+                Ok(stream) => {
+                    count += 1;
+                    println!("[{}] 📨 Connection from {:?}", count, stream.peer_addr());
 
-            // let mut v = Vec::<u8>::new();
-            // let _ = stream.try_clone().unwrap().read_to_end(&mut v);
-            // let mut s = String::new();
-            // let res = stream.try_clone().unwrap().read_to_string(&mut s);
-            // if res.is_ok() {
-            //     println!("Reading header: {:?}", res.unwrap());
-            // }
-            println!("[{}] reading stream from {:?}", &count, &stream.peer_addr());
-
-            match TransportTcpHeader::from_stream(stream) {
-                Ok(h) => {
-                    // Can finally successfully run and parse a single opensearch header
-                    // Parsed header: OpenSearchTcpHeader { message_length: 39, request_id: 49, status: 8, version: 136357827, variable_header_size: 26 }
-
-                    println!(
-                        "[{}] Parsed header: {:?}, is_handshake? {:?}",
-                        &count,
-                        h,
-                        h.is_handshake()
-                    );
-                    if h.is_handshake() {
-                        // TODO: actually handle this case
+                    if let Err(e) = self.handle_connection(stream, count) {
+                        eprintln!("[{}] ❌ Error handling connection: {:?}", count, e);
                     }
                 }
                 Err(e) => {
-                    eprintln!("[{}] Error parsing header: {:?}", count, e);
+                    eprintln!("❌ Error accepting connection: {:?}", e);
                 }
             }
-            // let buf_reader = BufReader::new(&mut stream);
-            // let http_request: Vec<_> = buf_reader
-            //     .lines()
-            //     .map(|result| result.map_or("<unknown>".to_string(), |v| v))
-            //     .take_while(|line| !line.is_empty())
-            //     .collect();
-            // dbg!(http_request);
-            //
-            // let response = "HTTP/1.1 200 OK\r\n\r\n";
-            // stream.write_all(response.as_bytes()).unwrap();
         }
+    }
+
+    fn handle_connection(&self, stream: TcpStream, connection_id: usize) -> Result<(), Box<dyn std::error::Error>> {
+        match TransportTcpHeader::from_stream(stream.try_clone()?) {
+            Ok(header) => {
+                println!("[{}] 📋 Parsed header: {:?}", connection_id, header);
+
+                if header.is_handshake() {
+                    println!("[{}] 🤝 Handling handshake request", connection_id);
+                    self.handle_handshake(stream, header, connection_id)?;
+                } else if header.is_request_response() {
+                    println!("[{}] 📨 Handling request/response", connection_id);
+                    self.handle_request_response(stream, header, connection_id)?;
+                } else {
+                    println!("[{}] ❓ Unknown request type: {}", connection_id, header.status);
+                }
+            }
+            Err(e) => {
+                eprintln!("[{}] ❌ Error parsing header: {:?}", connection_id, e);
+            }
+        }
+        Ok(())
+    }
+
+    fn handle_handshake(&self, mut stream: TcpStream, header: TransportTcpHeader, connection_id: usize) -> Result<(), Box<dyn std::error::Error>> {
+        println!("[{}] 🤝 Processing handshake", connection_id);
+
+        // Create a simple handshake response
+        let response_content = b"Hello from OpenSearch Rust SDK!";
+
+        let response_header = TransportTcpHeader::new(
+            header.request_id,
+            transport_status::STATUS_REQRES,
+            header.version,
+            response_content.len() as u32,
+            0, // variable header size
+        );
+
+        response_header.write_response(&mut stream, response_content)?;
+        println!("[{}] ✅ Handshake response sent", connection_id);
+
+        Ok(())
+    }
+
+    fn handle_request_response(&self, mut stream: TcpStream, header: TransportTcpHeader, connection_id: usize) -> Result<(), Box<dyn std::error::Error>> {
+        println!("[{}] 📨 Processing request/response", connection_id);
+
+        // Create a simple hello world response
+        let response_content = br#"{"message": "Hello World from OpenSearch Rust Extension!", "status": "ok", "extension": "hello-world-rs"}"#;
+
+        let response_header = TransportTcpHeader::new(
+            header.request_id,
+            transport_status::STATUS_REQRES,
+            header.version,
+            response_content.len() as u32,
+            0, // variable header size
+        );
+
+        response_header.write_response(&mut stream, response_content)?;
+        println!("[{}] ✅ Response sent", connection_id);
+
+        Ok(())
     }
 }
 
 fn main() {
+    println!("🦀 OpenSearch SDK for Rust - Hello World Extension");
+    println!("==================================================");
+
     let host = Host::new(1234);
     host.run();
+}
 
-    // register the "hello" extension with command line
-    // curl -XPOST "localhost:9200/_extensions/initialize" -H "Content-Type:application/json" --data @hello.json
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_host_creation() {
+        let host = Host::new(8080);
+        assert_eq!(host.port, 8080);
+        assert_eq!(host.address, Ipv4Addr::new(127, 0, 0, 1));
+    }
+
+    #[test]
+    fn test_default_host() {
+        let host = Host::default();
+        assert_eq!(host.port, DEFAULT_PORT);
+    }
 }
