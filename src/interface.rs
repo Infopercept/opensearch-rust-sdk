@@ -72,7 +72,10 @@ impl Deserialize for Request {
             2 => Ok(Request::TransportError(content)),
             4 => Ok(Request::Compress(content)),
             8 => Ok(Request::Handshake(content)),
-            _ => Err(io::Error::new(io::ErrorKind::InvalidData, "Invalid request type")),
+            _ => Err(io::Error::new(
+                io::ErrorKind::InvalidData,
+                "Invalid request type",
+            )),
         }
     }
 }

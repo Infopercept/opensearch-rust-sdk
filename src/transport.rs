@@ -66,7 +66,8 @@ impl TransportTcpHeader {
 
     pub fn from_stream(mut stream: TcpStream) -> Result<Self, Error> {
         let mut prefix = [0u8; 2];
-        stream.read_exact(&mut prefix)
+        stream
+            .read_exact(&mut prefix)
             .map_err(|_| Error::new(ErrorKind::InvalidData, "Unable to parse prefix"))?;
 
         if &prefix != MARKER_BYTES {
@@ -74,24 +75,32 @@ impl TransportTcpHeader {
         }
 
         let mut size = [0u8; 4];
-        stream.read_exact(&mut size)
+        stream
+            .read_exact(&mut size)
             .map_err(|_| Error::new(ErrorKind::InvalidData, "Unable to parse size"))?;
 
         let mut request_id = [0u8; 8];
-        stream.read_exact(&mut request_id)
+        stream
+            .read_exact(&mut request_id)
             .map_err(|_| Error::new(ErrorKind::InvalidData, "Cannot parse request_id"))?;
 
         let mut status = [0u8; 1];
-        stream.read_exact(&mut status)
+        stream
+            .read_exact(&mut status)
             .map_err(|_| Error::new(ErrorKind::InvalidData, "Unable to parse status"))?;
 
         let mut version = [0u8; 4];
-        stream.read_exact(&mut version)
+        stream
+            .read_exact(&mut version)
             .map_err(|_| Error::new(ErrorKind::InvalidData, "Unable to parse version"))?;
 
         let mut variable_header_size = [0u8; 4];
-        stream.read_exact(&mut variable_header_size)
-            .map_err(|_| Error::new(ErrorKind::InvalidData, "Unable to parse variable_header_size"))?;
+        stream.read_exact(&mut variable_header_size).map_err(|_| {
+            Error::new(
+                ErrorKind::InvalidData,
+                "Unable to parse variable_header_size",
+            )
+        })?;
 
         let message_length = u32::from_be_bytes(size);
 

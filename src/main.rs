@@ -1,7 +1,6 @@
 use std::net::{Ipv4Addr, TcpListener, TcpStream};
-use std::io::Write;
 
-use opensearch_sdk_rs::transport::{TransportTcpHeader, transport_status};
+use opensearch_sdk_rs::transport::{transport_status, TransportTcpHeader};
 
 const DEFAULT_PORT: u32 = 1234;
 
@@ -19,18 +18,14 @@ impl Host {
         }
     }
 
-    pub fn default() -> Host {
-        Host {
-            address: Ipv4Addr::new(127, 0, 0, 1),
-            port: DEFAULT_PORT,
-        }
-    }
-
     pub fn run(&self) {
         let listener = TcpListener::bind(format!("{}:{}", &self.address, &self.port))
-            .expect(&format!("Unable to bind to port: {}", &self.port));
+            .unwrap_or_else(|_| panic!("Unable to bind to port: {}", &self.port));
 
-        println!("🚀 OpenSearch Extension SDK (Rust) started on {}:{}", self.address, self.port);
+        println!(
+            "🚀 OpenSearch Extension SDK (Rust) started on {}:{}",
+            self.address, self.port
+        );
         println!("📡 Waiting for OpenSearch connections...");
 
         let mut count = 0;
@@ -52,7 +47,11 @@ impl Host {
         }
     }
 
-    fn handle_connection(&self, stream: TcpStream, connection_id: usize) -> Result<(), Box<dyn std::error::Error>> {
+    fn handle_connection(
+        &self,
+        stream: TcpStream,
+        connection_id: usize,
+    ) -> Result<(), Box<dyn std::error::Error>> {
         match TransportTcpHeader::from_stream(stream.try_clone()?) {
             Ok(header) => {
                 println!("[{}] 📋 Parsed header: {:?}", connection_id, header);
@@ -64,7 +63,10 @@ impl Host {
                     println!("[{}] 📨 Handling request/response", connection_id);
                     self.handle_request_response(stream, header, connection_id)?;
                 } else {
-                    println!("[{}] ❓ Unknown request type: {}", connection_id, header.status);
+                    println!(
+                        "[{}] ❓ Unknown request type: {}",
+                        connection_id, header.status
+                    );
                 }
             }
             Err(e) => {
@@ -74,7 +76,12 @@ impl Host {
         Ok(())
     }
 
-    fn handle_handshake(&self, mut stream: TcpStream, header: TransportTcpHeader, connection_id: usize) -> Result<(), Box<dyn std::error::Error>> {
+    fn handle_handshake(
+        &self,
+        mut stream: TcpStream,
+        header: TransportTcpHeader,
+        connection_id: usize,
+    ) -> Result<(), Box<dyn std::error::Error>> {
         println!("[{}] 🤝 Processing handshake", connection_id);
 
         // Create a simple handshake response
@@ -94,7 +101,12 @@ impl Host {
         Ok(())
     }
 
-    fn handle_request_response(&self, mut stream: TcpStream, header: TransportTcpHeader, connection_id: usize) -> Result<(), Box<dyn std::error::Error>> {
+    fn handle_request_response(
+        &self,
+        mut stream: TcpStream,
+        header: TransportTcpHeader,
+        connection_id: usize,
+    ) -> Result<(), Box<dyn std::error::Error>> {
         println!("[{}] 📨 Processing request/response", connection_id);
 
         // Create a simple hello world response
@@ -112,6 +124,15 @@ impl Host {
         println!("[{}] ✅ Response sent", connection_id);
 
         Ok(())
+    }
+}
+
+impl Default for Host {
+    fn default() -> Self {
+        Host {
+            address: Ipv4Addr::new(127, 0, 0, 1),
+            port: DEFAULT_PORT,
+        }
     }
 }
 
