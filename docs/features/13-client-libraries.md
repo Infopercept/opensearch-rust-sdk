@@ -100,11 +100,21 @@ impl DocumentClient {
     where
         T: Serialize,
     {
-        let path = format!("/{}/{}", request.index, request.id.as_deref().unwrap_or("_doc"));
+        use percent_encoding::{utf8_percent_encode, NON_ALPHANUMERIC};
+        let encoded_index = utf8_percent_encode(&request.index, NON_ALPHANUMERIC).to_string();
+        let path = match &request.id {
+            Some(id) => {
+                let encoded_id = utf8_percent_encode(id, NON_ALPHANUMERIC);
+                format!("/{}/_doc/{}", encoded_index, encoded_id)
+            }
+            None => format!("/{}/_doc", encoded_index),
+        };
+        let method = if request.id.is_some() { Method::PUT } else { Method::POST };
         let body = serde_json::to_vec(&request.document)?;
         
         let response = self.transport
-            .request(Method::PUT, &path)
+            .request(method, &path)
+            .header("Content-Type", "application/json")
             .body(body)
             .send()
             .await?;
@@ -410,6 +420,7 @@ pub mod dsl {
 
 ```rust
 /// Streaming client for large operations
+#[derive(Clone)]
 pub struct StreamingClient {
     transport: Arc<Transport>,
 }
@@ -427,7 +438,7 @@ impl StreamingClient {
         let scroll_id = initial.scroll_id.clone();
         
         Ok(SearchStream {
-            client: self.clone(),
+            client: Arc::new(self.clone()),
             scroll_id,
             buffer: VecDeque::from(initial.hits.hits),
             keep_alive: "1m".to_string(),
@@ -472,13 +483,20 @@ impl StreamingClient {
     }
 }
 
+use futures::stream::Stream;
+use std::future::Future;
+use std::task::{Context, Poll};
+use std::pin::Pin;
+
 /// Search results stream
 struct SearchStream<T> {
-    client: StreamingClient,
+    client: Arc<StreamingClient>,
     scroll_id: Option<String>,
     buffer: VecDeque<Hit<T>>,
     keep_alive: String,
     finished: bool,
+    // Store the in-flight future to avoid creating it in poll
+    pending_future: Option<Pin<Box<dyn Future<Output = Result<ScrollResponse<T>, ClientError>> + Send>>>,
 }
 
 impl<T> Stream for SearchStream<T>
@@ -488,48 +506,65 @@ where
     type Item = Result<T, ClientError>;
     
     fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
+        let this = self.as_mut().get_mut();
+        
         // Return buffered items first
-        if let Some(hit) = self.buffer.pop_front() {
+        if let Some(hit) = this.buffer.pop_front() {
             return Poll::Ready(Some(Ok(hit.source)));
         }
         
-        if self.finished {
+        if this.finished {
             return Poll::Ready(None);
         }
         
-        // Fetch next batch
-        let scroll_id = match &self.scroll_id {
-            Some(id) => id.clone(),
-            None => {
-                self.finished = true;
-                return Poll::Ready(None);
-            }
-        };
-        
-        let client = self.client.clone();
-        let keep_alive = self.keep_alive.clone();
-        
-        let future = async move {
-            client.scroll::<T>(ScrollRequest {
-                scroll_id,
-                scroll: keep_alive,
-            }).await
-        };
-        
-        // Poll the future
-        match Box::pin(future).as_mut().poll(cx) {
-            Poll::Ready(Ok(response)) => {
-                if response.hits.hits.is_empty() {
-                    self.finished = true;
-                    Poll::Ready(None)
-                } else {
-                    self.buffer.extend(response.hits.hits);
-                    self.scroll_id = response.scroll_id;
-                    self.poll_next(cx)
+        // Create the future if we don't have one pending
+        if this.pending_future.is_none() {
+            let scroll_id = match &this.scroll_id {
+                Some(id) => id.clone(),
+                None => {
+                    this.finished = true;
+                    return Poll::Ready(None);
                 }
+            };
+            
+            let client = Arc::clone(&this.client);
+            let keep_alive = this.keep_alive.clone();
+            
+            let future = async move {
+                client.scroll::<T>(ScrollRequest {
+                    scroll_id,
+                    scroll: keep_alive,
+                }).await
+            };
+            
+            this.pending_future = Some(Box::pin(future));
+        }
+        
+        // Poll the pending future
+        if let Some(future) = &mut this.pending_future {
+            match future.as_mut().poll(cx) {
+                Poll::Ready(Ok(response)) => {
+                    this.pending_future = None; // Clear the future
+                    
+                    if response.hits.hits.is_empty() {
+                        this.finished = true;
+                        Poll::Ready(None)
+                    } else {
+                        this.buffer.extend(response.hits.hits);
+                        this.scroll_id = response.scroll_id;
+                        // Wake the task to process buffered items
+                        cx.waker().wake_by_ref();
+                        Poll::Pending
+                    }
+                }
+                Poll::Ready(Err(e)) => {
+                    this.pending_future = None; // Clear the future
+                    Poll::Ready(Some(Err(e)))
+                }
+                Poll::Pending => Poll::Pending,
             }
-            Poll::Ready(Err(e)) => Poll::Ready(Some(Err(e))),
-            Poll::Pending => Poll::Pending,
+        } else {
+            unreachable!("pending_future should be Some")
         }
     }
 }

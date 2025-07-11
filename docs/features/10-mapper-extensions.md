@@ -135,6 +135,30 @@ pub struct VectorFieldMapper {
     index_options: VectorIndexOptions,
 }
 
+impl VectorFieldMapper {
+    fn parse_vector(&self, value: &Value) -> Result<Vec<f32>, MapperError> {
+        match value {
+            Value::Array(values) => {
+                if values.len() != self.dimension {
+                    return Err(MapperError::InvalidDimension(
+                        values.len(),
+                        self.dimension,
+                    ));
+                }
+                
+                values.iter()
+                    .map(|v| v.as_f64()
+                        .map(|f| f as f32)
+                        .ok_or_else(|| MapperError::InvalidVectorElement))
+                    .collect::<Result<Vec<f32>, _>>()
+            }
+            _ => Err(MapperError::InvalidFieldType(
+                "vector field requires array value".to_string()
+            )),
+        }
+    }
+}
+
 impl FieldMapper for VectorFieldMapper {
     fn name(&self) -> &str {
         &self.name
@@ -149,34 +173,21 @@ impl FieldMapper for VectorFieldMapper {
         context: &mut DocumentParserContext,
         value: &Value,
     ) -> Result<(), MapperError> {
-        let vector = match value {
-            Value::Array(values) => {
-                if values.len() != self.dimension {
-                    return Err(MapperError::InvalidDimension(
-                        values.len(),
-                        self.dimension,
-                    ));
-                }
-                
-                values.iter()
-                    .map(|v| v.as_f64()
-                        .ok_or_else(|| MapperError::InvalidVectorElement))
-                    .collect::<Result<Vec<f64>, _>>()?
-            }
-            _ => return Err(MapperError::InvalidFieldType(
-                "vector field requires array value".to_string()
-            )),
-        };
+        // Use parse_vector to avoid duplication
+        let vector = self.parse_vector(value)?;
+        
+        // Convert f32 to f64 for the context API
+        let vector_f64: Vec<f64> = vector.iter().map(|&v| v as f64).collect();
         
         // Normalize if required
-        let vector = if self.similarity == VectorSimilarity::Cosine {
-            normalize_vector(&vector)
+        let vector_f64 = if self.similarity == VectorSimilarity::Cosine {
+            normalize_vector(&vector_f64)
         } else {
-            vector
+            vector_f64
         };
         
         // Add to context for indexing
-        context.add_vector_field(&self.name, vector, &self.index_options)?;
+        context.add_vector_field(&self.name, vector_f64, &self.index_options)?;
         
         Ok(())
     }

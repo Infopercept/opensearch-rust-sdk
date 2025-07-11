@@ -303,6 +303,23 @@ impl ExtensionServiceMesh {
         result
     }
     
+    /// Execute the actual call to the service
+    async fn execute_call<Req, Res>(
+        &self,
+        endpoint: &ServiceEndpoint,
+        method: &str,
+        request: &Req,
+    ) -> Result<Res, DiscoveryError>
+    where
+        Req: Serialize + Send,
+        Res: DeserializeOwned,
+    {
+        // TODO: Use transport layer to make the actual call
+        // This would serialize the request, send it via transport,
+        // and deserialize the response
+        unimplemented!("execute_call would use transport layer")
+    }
+    
     /// Register a service
     pub async fn register_service(
         &self,

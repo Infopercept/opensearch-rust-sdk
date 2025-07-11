@@ -248,10 +248,9 @@ impl SecurityContext {
     
     /// Get effective principal (considering impersonation)
     pub fn effective_principal(&self) -> &Principal {
-        if let Some(impersonator) = &self.impersonated_by {
-            &self.principal
-        } else {
-            &self.principal
+        match &self.impersonated_by {
+            Some(impersonator) => impersonator,
+            None => &self.principal,
         }
     }
     

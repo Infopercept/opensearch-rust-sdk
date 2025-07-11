@@ -44,6 +44,37 @@ pub trait ProcessorFactory: Send + Sync + 'static {
         Ok(())
     }
 }
+
+/// Errors that can occur during processing
+#[derive(Debug, Clone)]
+pub enum ProcessorError {
+    /// Field not found
+    FieldNotFound(String),
+    /// Field is not an array
+    FieldNotArray(String),
+    /// Invalid value
+    InvalidValue(String),
+    /// Nested field access not yet supported
+    NestedFieldAccessNotSupported(String),
+    /// Generic processing error
+    ProcessingError(String),
+}
+
+impl std::fmt::Display for ProcessorError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            ProcessorError::FieldNotFound(field) => write!(f, "Field not found: {}", field),
+            ProcessorError::FieldNotArray(field) => write!(f, "Field is not an array: {}", field),
+            ProcessorError::InvalidValue(msg) => write!(f, "Invalid value: {}", msg),
+            ProcessorError::NestedFieldAccessNotSupported(path) => {
+                write!(f, "Nested field access not yet supported for path: {}", path)
+            }
+            ProcessorError::ProcessingError(msg) => write!(f, "Processing error: {}", msg),
+        }
+    }
+}
+
+impl std::error::Error for ProcessorError {}
 ```
 
 ### Processor Framework
@@ -110,6 +141,65 @@ impl IngestDocument {
                 self.set_field(path, Value::Array(vec![value]))
             }
         }
+    }
+    
+    /// Set ingest failure information
+    pub fn set_failure_info(&mut self, message: String, processor: Option<String>) {
+        self.ingest.on_failure_message = Some(message);
+        self.ingest.on_failure_processor = processor;
+    }
+    
+    // Private helper methods
+    fn get_field_by_path(&self, path: &str) -> Option<&Value> {
+        // Implementation for nested field access
+        let parts: Vec<&str> = path.split('.').collect();
+        let mut current = &self.fields;
+        
+        for (i, part) in parts.iter().enumerate() {
+            if i == parts.len() - 1 {
+                return current.get(*part);
+            }
+            
+            match current.get(*part) {
+                Some(Value::Object(map)) => {
+                    // TODO: Implement proper nested object access
+                    return None;
+                }
+                _ => return None,
+            }
+        }
+        None
+    }
+    
+    fn get_field_mut(&mut self, path: &str) -> Option<&mut Value> {
+        // Implementation similar to get_field_by_path but returns mutable reference
+        let parts: Vec<&str> = path.split('.').collect();
+        if parts.len() == 1 {
+            return self.fields.get_mut(parts[0]);
+        }
+        // TODO: Implement nested mutable field access
+        None
+    }
+    
+    fn set_field_by_path(&mut self, path: &str, value: Value) -> Result<(), ProcessorError> {
+        // Implementation for setting nested fields
+        let parts: Vec<&str> = path.split('.').collect();
+        if parts.len() == 1 {
+            self.fields.insert(path.to_string(), value);
+            return Ok(());
+        }
+        // TODO: Implement nested field setting
+        Err(ProcessorError::NestedFieldAccessNotSupported(path.to_string()))
+    }
+    
+    fn remove_field_by_path(&mut self, path: &str) -> Option<Value> {
+        // Implementation for removing nested fields
+        let parts: Vec<&str> = path.split('.').collect();
+        if parts.len() == 1 {
+            return self.fields.remove(path);
+        }
+        // TODO: Implement nested field removal  
+        None
     }
 }
 
@@ -310,8 +400,7 @@ impl Pipeline {
                 }
                 Err(e) => {
                     // Run failure handlers
-                    document.ingest.on_failure_message = Some(e.to_string());
-                    document.ingest.on_failure_processor = processor.tag().map(String::from);
+                    document.set_failure_info(e.to_string(), processor.tag().map(String::from));
                     
                     for failure_processor in &self.on_failure {
                         match failure_processor.process(document, context).await {

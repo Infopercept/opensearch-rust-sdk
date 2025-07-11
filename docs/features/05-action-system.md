@@ -21,7 +21,7 @@ The Action System provides a framework for defining, registering, and executing 
 /// Base trait for all actions
 pub trait Action: Send + Sync + 'static {
     /// Action name (e.g., "indices:data/read/search")
-    const NAME: &'static str;
+    fn name() -> &'static str where Self: Sized;
     
     /// Request type for this action
     type Request: ActionRequest;
@@ -130,7 +130,7 @@ impl ActionRegistry {
         H: ActionHandler<A> + 'static,
     {
         self.handlers.insert(
-            A::NAME,
+            A::name(),
             Box::new(TypedActionHandler::<A, H>::new(handler)),
         );
     }
@@ -138,7 +138,7 @@ impl ActionRegistry {
     /// Register a client action
     pub fn register_client_action<A: Action>(&mut self) {
         self.client_actions.insert(
-            A::NAME,
+            A::name(),
             ActionMetadata::for_action::<A>(),
         );
     }
@@ -211,12 +211,13 @@ impl ActionClient {
     }
     
     /// Execute an action and stream responses
-    pub async fn execute_streaming<A: Action>(
+    pub async fn execute_streaming<A, R>(
         &self,
         request: A::Request,
-    ) -> Result<impl Stream<Item = Result<A::Response, ActionError>>, ActionError>
+    ) -> Result<impl Stream<Item = Result<R, ActionError>>, ActionError>
     where
-        A: Action<Response = impl StreamableResponse>,
+        A: Action<Response = R>,
+        R: StreamableResponse,
     {
         // Implementation for streaming responses
         unimplemented!()
@@ -231,7 +232,10 @@ impl ActionClient {
 pub struct SearchAction;
 
 impl Action for SearchAction {
-    const NAME: &'static str = "indices:data/read/search";
+    fn name() -> &'static str {
+        "indices:data/read/search"
+    }
+    
     type Request = SearchRequest;
     type Response = SearchResponse;
 }
@@ -272,7 +276,10 @@ impl ActionRequest for SearchRequest {
 pub struct BulkAction;
 
 impl Action for BulkAction {
-    const NAME: &'static str = "indices:data/write/bulk";
+    fn name() -> &'static str {
+        "indices:data/write/bulk"
+    }
+    
     type Request = BulkRequest;
     type Response = BulkResponse;
     
@@ -298,7 +305,9 @@ macro_rules! define_action {
         pub struct $name;
         
         impl Action for $name {
-            const NAME: &'static str = $action_name;
+            fn name() -> &'static str {
+                $action_name
+            }
             type Request = $request;
             type Response = $response;
             
@@ -355,7 +364,12 @@ where
     Req: ActionRequest,
     Res: ActionResponse,
 {
-    const NAME: &'static str = "extensions:dynamic";
+    fn name() -> &'static str {
+        // For dynamic actions, we'll need a different approach
+        // This is a limitation - dynamic actions need special handling
+        "extensions:dynamic"
+    }
+    
     type Request = Req;
     type Response = Res;
 }
