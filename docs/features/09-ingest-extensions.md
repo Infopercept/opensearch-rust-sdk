@@ -44,6 +44,37 @@ pub trait ProcessorFactory: Send + Sync + 'static {
         Ok(())
     }
 }
+
+/// Errors that can occur during processing
+#[derive(Debug, Clone)]
+pub enum ProcessorError {
+    /// Field not found
+    FieldNotFound(String),
+    /// Field is not an array
+    FieldNotArray(String),
+    /// Invalid value
+    InvalidValue(String),
+    /// Nested field access not yet supported
+    NestedFieldAccessNotSupported(String),
+    /// Generic processing error
+    ProcessingError(String),
+}
+
+impl std::fmt::Display for ProcessorError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            ProcessorError::FieldNotFound(field) => write!(f, "Field not found: {}", field),
+            ProcessorError::FieldNotArray(field) => write!(f, "Field is not an array: {}", field),
+            ProcessorError::InvalidValue(msg) => write!(f, "Invalid value: {}", msg),
+            ProcessorError::NestedFieldAccessNotSupported(path) => {
+                write!(f, "Nested field access not yet supported for path: {}", path)
+            }
+            ProcessorError::ProcessingError(msg) => write!(f, "Processing error: {}", msg),
+        }
+    }
+}
+
+impl std::error::Error for ProcessorError {}
 ```
 
 ### Processor Framework
@@ -131,9 +162,8 @@ impl IngestDocument {
             
             match current.get(*part) {
                 Some(Value::Object(map)) => {
-                    // For simplicity, assuming Value::Object contains a HashMap
-                    // In real implementation, this would need proper handling
-                    unimplemented!("Nested object access")
+                    // TODO: Implement proper nested object access
+                    return None;
                 }
                 _ => return None,
             }
@@ -147,8 +177,8 @@ impl IngestDocument {
         if parts.len() == 1 {
             return self.fields.get_mut(parts[0]);
         }
-        // For nested paths, would need more complex implementation
-        unimplemented!("Nested mutable field access")
+        // TODO: Implement nested mutable field access
+        None
     }
     
     fn set_field_by_path(&mut self, path: &str, value: Value) -> Result<(), ProcessorError> {
@@ -158,8 +188,8 @@ impl IngestDocument {
             self.fields.insert(path.to_string(), value);
             return Ok(());
         }
-        // For nested paths, would need more complex implementation
-        unimplemented!("Nested field setting")
+        // TODO: Implement nested field setting
+        Err(ProcessorError::NestedFieldAccessNotSupported(path.to_string()))
     }
     
     fn remove_field_by_path(&mut self, path: &str) -> Option<Value> {
@@ -168,8 +198,8 @@ impl IngestDocument {
         if parts.len() == 1 {
             return self.fields.remove(path);
         }
-        // For nested paths, would need more complex implementation
-        unimplemented!("Nested field removal")
+        // TODO: Implement nested field removal  
+        None
     }
 }
 

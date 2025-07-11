@@ -100,15 +100,21 @@ impl DocumentClient {
     where
         T: Serialize,
     {
+        use percent_encoding::{utf8_percent_encode, NON_ALPHANUMERIC};
+        let encoded_index = utf8_percent_encode(&request.index, NON_ALPHANUMERIC).to_string();
         let path = match &request.id {
-            Some(id) => format!("/{}/_doc/{}", request.index, id),
-            None => format!("/{}/_doc", request.index),
+            Some(id) => {
+                let encoded_id = utf8_percent_encode(id, NON_ALPHANUMERIC);
+                format!("/{}/_doc/{}", encoded_index, encoded_id)
+            }
+            None => format!("/{}/_doc", encoded_index),
         };
         let method = if request.id.is_some() { Method::PUT } else { Method::POST };
         let body = serde_json::to_vec(&request.document)?;
         
         let response = self.transport
             .request(method, &path)
+            .header("Content-Type", "application/json")
             .body(body)
             .send()
             .await?;
@@ -414,6 +420,7 @@ pub mod dsl {
 
 ```rust
 /// Streaming client for large operations
+#[derive(Clone)]
 pub struct StreamingClient {
     transport: Arc<Transport>,
 }
@@ -431,7 +438,7 @@ impl StreamingClient {
         let scroll_id = initial.scroll_id.clone();
         
         Ok(SearchStream {
-            client: self.clone(),
+            client: Arc::new(self.clone()),
             scroll_id,
             buffer: VecDeque::from(initial.hits.hits),
             keep_alive: "1m".to_string(),
@@ -483,7 +490,7 @@ use std::pin::Pin;
 
 /// Search results stream
 struct SearchStream<T> {
-    client: StreamingClient,
+    client: Arc<StreamingClient>,
     scroll_id: Option<String>,
     buffer: VecDeque<Hit<T>>,
     keep_alive: String,
@@ -520,7 +527,7 @@ where
                 }
             };
             
-            let client = this.client.clone();
+            let client = Arc::clone(&this.client);
             let keep_alive = this.keep_alive.clone();
             
             let future = async move {
@@ -545,8 +552,9 @@ where
                     } else {
                         this.buffer.extend(response.hits.hits);
                         this.scroll_id = response.scroll_id;
-                        // Return to poll_next to yield the first item
-                        self.poll_next(cx)
+                        // Wake the task to process buffered items
+                        cx.waker().wake_by_ref();
+                        Poll::Pending
                     }
                 }
                 Poll::Ready(Err(e)) => {

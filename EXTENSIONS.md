@@ -509,8 +509,8 @@ struct HelloHandler;
 
 #[async_trait]
 impl RestHandler for HelloHandler {
-    fn methods(&self) -> &[Method] {
-        &[Method::GET]
+    fn methods(&self) -> Cow<'static, [Method]> {
+        Cow::Borrowed(&[Method::GET])
     }
     
     fn path(&self) -> &str {

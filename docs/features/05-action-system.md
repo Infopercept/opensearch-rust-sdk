@@ -130,7 +130,7 @@ impl ActionRegistry {
         H: ActionHandler<A> + 'static,
     {
         self.handlers.insert(
-            A::name().to_string(),
+            A::name(),
             Box::new(TypedActionHandler::<A, H>::new(handler)),
         );
     }
@@ -138,7 +138,7 @@ impl ActionRegistry {
     /// Register a client action
     pub fn register_client_action<A: Action>(&mut self) {
         self.client_actions.insert(
-            A::name().to_string(),
+            A::name(),
             ActionMetadata::for_action::<A>(),
         );
     }
