@@ -111,20 +111,20 @@ graph TB
         OS[OpenSearch Node]
         EM[Extensions Manager]
     end
-    
+
     subgraph "Extension Process"
         ER[Extension Runner]
         EXT[Extension Implementation]
         TP[Transport Protocol]
         RH[REST Handlers]
     end
-    
+
     OS <--> EM
     EM <--> ER
     ER --> EXT
     EXT --> TP
     EXT --> RH
-    
+
     style OS fill:#f9f9f9,stroke:#333,stroke-width:2px
     style EXT fill:#e1e1e1,stroke:#333,stroke-width:2px
 ```
@@ -144,11 +144,11 @@ impl Extension for MyExtension {
     fn name(&self) -> &str {
         "my-extension"
     }
-    
+
     fn unique_id(&self) -> &str {
         "my-extension-rs"
     }
-    
+
     async fn initialize(&mut self, context: ExtensionContext) -> Result<(), ExtensionError> {
         println!("Extension initialized!");
         Ok(())
@@ -263,7 +263,7 @@ This project is licensed under the Apache License 2.0 - see the [LICENSE.txt](LI
 
 <div align="center">
 
-**Built with by [Infopercept](https://www.infopercept.com)**
+**Built with <3 by [Infopercept](https://www.infopercept.com)**
 
 *Empowering secure and scalable search solutions*
 
