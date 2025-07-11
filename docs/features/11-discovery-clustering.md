@@ -303,6 +303,18 @@ impl ExtensionServiceMesh {
         result
     }
     
+    /// Execute the actual call to the service
+    async fn execute_call(
+        &self,
+        endpoint: &ServiceEndpoint,
+        method: &str,
+        request: &[u8],
+    ) -> Result<Vec<u8>, DiscoveryError> {
+        // This would use the transport layer to make the actual call
+        // For now, this is a placeholder
+        unimplemented!("execute_call would use transport layer")
+    }
+    
     /// Register a service
     pub async fn register_service(
         &self,

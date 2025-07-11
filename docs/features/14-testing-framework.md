@@ -456,7 +456,9 @@ impl PerfTestHarness {
         // Calculate statistics
         durations.sort();
         let total: Duration = durations.iter().sum();
-        let mean = total / iterations as u32;
+        let mean = Duration::from_secs_f64(
+            total.as_secs_f64() / iterations as f64
+        );
         let median = durations[durations.len() / 2];
         let p95 = durations[(durations.len() * 95) / 100];
         let p99 = durations[(durations.len() * 99) / 100];
@@ -492,13 +494,17 @@ impl PerfTestHarness {
         
         let mut handles = vec![];
         
+        // Store test in Arc to share between tasks
+        let test = Arc::new(test);
+        
         for _ in 0..concurrency {
             let counter = Arc::clone(&counter);
             let error_counter = Arc::clone(&error_counter);
-            let test = test.clone();
+            let test = Arc::clone(&test);
+            let task_start = start;
             
             let handle = tokio::spawn(async move {
-                while start.elapsed() < duration {
+                while task_start.elapsed() < duration {
                     match test().await {
                         Ok(_) => counter.fetch_add(1, Ordering::Relaxed),
                         Err(_) => error_counter.fetch_add(1, Ordering::Relaxed),

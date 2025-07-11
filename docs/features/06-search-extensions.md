@@ -74,8 +74,14 @@ pub trait Query: Send + Sync + 'static {
     
     /// Rewrite query for optimization
     fn rewrite(&self, context: &QueryContext) -> Result<Box<dyn Query>, QueryError> {
-        Ok(Box::new(self.clone()))
+        // Default implementation returns self unchanged
+        // Implementors should override this if they support query rewriting
+        Ok(self.boxed_clone())
     }
+    
+    /// Helper for cloning boxed queries
+    /// Implementors must override this method if they want to use the default rewrite implementation
+    fn boxed_clone(&self) -> Box<dyn Query>;
     
     /// Extract terms for highlighting
     fn extract_terms(&self) -> Vec<Term> {
@@ -111,6 +117,7 @@ pub trait QueryBuilder: Send + Sync {
 
 ```rust
 /// Vector similarity query
+#[derive(Clone)]
 pub struct VectorQuery {
     field: String,
     vector: Vec<f32>,
@@ -138,6 +145,10 @@ impl Query for VectorQuery {
             self.k,
             self.similarity.to_lucene(),
         ))
+    }
+    
+    fn boxed_clone(&self) -> Box<dyn Query> {
+        Box::new(self.clone())
     }
     
     fn cache_key(&self) -> Option<String> {
@@ -249,6 +260,7 @@ pub struct PercentileAggregation {
 }
 
 pub struct PercentileAggregator {
+    field: String,
     tdigest: TDigest,
     percentiles: Vec<f64>,
 }

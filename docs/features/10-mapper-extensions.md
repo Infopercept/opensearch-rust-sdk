@@ -135,6 +135,30 @@ pub struct VectorFieldMapper {
     index_options: VectorIndexOptions,
 }
 
+impl VectorFieldMapper {
+    fn parse_vector(&self, value: &Value) -> Result<Vec<f32>, MapperError> {
+        match value {
+            Value::Array(values) => {
+                if values.len() != self.dimension {
+                    return Err(MapperError::InvalidDimension(
+                        values.len(),
+                        self.dimension,
+                    ));
+                }
+                
+                values.iter()
+                    .map(|v| v.as_f64()
+                        .map(|f| f as f32)
+                        .ok_or_else(|| MapperError::InvalidVectorElement))
+                    .collect::<Result<Vec<f32>, _>>()
+            }
+            _ => Err(MapperError::InvalidFieldType(
+                "vector field requires array value".to_string()
+            )),
+        }
+    }
+}
+
 impl FieldMapper for VectorFieldMapper {
     fn name(&self) -> &str {
         &self.name

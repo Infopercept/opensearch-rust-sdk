@@ -17,6 +17,8 @@ The Core Extension Framework is the foundation of the OpenSearch Rust SDK. It pr
 ### Core Traits
 
 ```rust
+use async_trait::async_trait;
+
 /// Base trait that all extensions must implement
 #[async_trait]
 pub trait Extension: Send + Sync + 'static {
@@ -43,7 +45,7 @@ pub trait Extension: Send + Sync + 'static {
     }
     
     /// Initialize the extension
-    async fn initialize(&mut self, context: ExtensionContext) -> Result<(), ExtensionError>;
+    async fn initialize(&mut self, context: &ExtensionContext) -> Result<(), ExtensionError>;
     
     /// Shutdown the extension gracefully
     async fn shutdown(&mut self) -> Result<(), ExtensionError>;
@@ -127,7 +129,7 @@ impl ExtensionBuilder {
         self
     }
     
-    pub fn build<E: Extension>(self, extension: E) -> ExtensionRunner {
+    pub fn build<E: Extension>(self, extension: E) -> Result<ExtensionRunner, ExtensionError> {
         ExtensionRunner::new(Box::new(extension))
     }
 }
@@ -162,7 +164,8 @@ impl ExtensionBuilder {
 ## Usage Example
 
 ```rust
-use opensearch_sdk::{Extension, ExtensionBuilder, ExtensionContext, async_trait};
+use opensearch_sdk::{Extension, ExtensionBuilder, ExtensionContext, ExtensionError};
+use async_trait::async_trait;
 
 struct MyExtension {
     // Extension state
@@ -186,7 +189,7 @@ impl Extension for MyExtension {
         "3.0.0"
     }
     
-    async fn initialize(&mut self, context: ExtensionContext) -> Result<(), ExtensionError> {
+    async fn initialize(&mut self, context: &ExtensionContext) -> Result<(), ExtensionError> {
         // Initialize extension resources
         Ok(())
     }

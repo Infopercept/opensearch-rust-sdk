@@ -78,6 +78,13 @@ pub enum TransportStatus {
     Error = 1,
 }
 
+/// Transport features
+#[derive(Debug, Clone, Default)]
+pub struct Features {
+    pub compress: bool,
+    pub handshake: bool,
+}
+
 /// Thread context for distributed tracing
 #[derive(Debug, Clone, Default)]
 pub struct ThreadContext {
@@ -88,14 +95,14 @@ pub struct ThreadContext {
 ### Message Parsing
 
 ```rust
-use nom::{IResult, bytes::complete::take, number::complete::{be_u32, u8}};
+use nom::{IResult, bytes::complete::take, number::complete::{be_u32, be_u8}};
 
 /// Parse transport header from bytes
 pub fn parse_transport_header(input: &[u8]) -> IResult<&[u8], TransportHeader> {
-    let (input, message_marker) = u8(input)?;
-    let (input, protocol_type) = u8(input)?;
-    let (input, status) = u8(input)?;
-    let (input, version) = u8(input)?;
+    let (input, message_marker) = be_u8(input)?;
+    let (input, protocol_type) = be_u8(input)?;
+    let (input, status) = be_u8(input)?;
+    let (input, version) = be_u8(input)?;
     let (input, request_id) = be_u32(input)?;
     
     // Parse variable header
@@ -130,6 +137,8 @@ pub fn parse_transport_header(input: &[u8]) -> IResult<&[u8], TransportHeader> {
 ### Transport Client
 
 ```rust
+use std::sync::atomic::{AtomicU32, Ordering};
+
 /// Client for sending transport messages
 pub struct TransportClient {
     connection: Arc<Mutex<TcpStream>>,
@@ -138,6 +147,11 @@ pub struct TransportClient {
 }
 
 impl TransportClient {
+    /// Generate the next unique request ID
+    fn next_request_id(&self) -> RequestId {
+        RequestId(self.next_request_id.fetch_add(1, Ordering::Relaxed))
+    }
+    
     /// Send a request and await response
     pub async fn send_request<Req, Res>(
         &self,
@@ -159,7 +173,10 @@ impl TransportClient {
             message_type: MessageType::Request,
             request_id,
             action: Some(action.to_string()),
-            ..Default::default()
+            version: Version(1),
+            status: TransportStatus::Success,
+            features: Features::default(),
+            thread_context: ThreadContext::default(),
         };
         
         self.send_message(header, request).await?;
@@ -183,7 +200,11 @@ impl TransportClient {
         let header = TransportHeader {
             message_type: MessageType::Response,
             request_id,
-            ..Default::default()
+            action: None,
+            version: Version(1),
+            status: TransportStatus::Success,
+            features: Features::default(),
+            thread_context: ThreadContext::default(),
         };
         
         self.send_message(header, response).await

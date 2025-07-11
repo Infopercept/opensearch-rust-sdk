@@ -310,6 +310,55 @@ impl SettingBuilder<BoolSetting> {
     }
 }
 
+impl SettingBuilder<BoolSetting> {
+    pub fn bool_setting(key: impl Into<String>) -> Self {
+        Self::new(key)
+    }
+}
+
+impl SettingBuilder<ByteSizeSetting> {
+    pub fn byte_size_setting(key: impl Into<String>) -> Self {
+        Self {
+            setting: ByteSizeSetting {
+                key: key.into(),
+                default: ByteSize::bytes(0),
+                min: None,
+                max: None,
+                metadata: SettingMetadata::default(),
+            },
+        }
+    }
+    
+    pub fn default(mut self, value: ByteSize) -> Self {
+        self.setting.default = value;
+        self
+    }
+    
+    pub fn min(mut self, value: ByteSize) -> Self {
+        self.setting.min = Some(value);
+        self
+    }
+    
+    pub fn max(mut self, value: ByteSize) -> Self {
+        self.setting.max = Some(value);
+        self
+    }
+    
+    pub fn dynamic(mut self) -> Self {
+        self.setting.metadata.dynamic = true;
+        self
+    }
+    
+    pub fn description(mut self, desc: impl Into<String>) -> Self {
+        self.setting.metadata.description = Some(desc.into());
+        self
+    }
+    
+    pub fn build(self) -> ByteSizeSetting {
+        self.setting
+    }
+}
+
 // Similar builders for other setting types...
 ```
 

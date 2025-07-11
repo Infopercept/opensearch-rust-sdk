@@ -216,10 +216,13 @@ sequenceDiagram
 ### REST Handler Implementation
 
 ```rust
+use async_trait::async_trait;
+use std::borrow::Cow;
+
 #[async_trait]
 pub trait RestHandler: Send + Sync {
     /// HTTP methods this handler supports
-    fn methods(&self) -> &[Method];
+    fn methods(&self) -> Cow<'static, [Method]>;
     
     /// Path pattern (e.g., "/users/{id}")
     fn path(&self) -> &str;
@@ -233,8 +236,8 @@ struct UserHandler;
 
 #[async_trait]
 impl RestHandler for UserHandler {
-    fn methods(&self) -> &[Method] {
-        &[Method::GET, Method::POST]
+    fn methods(&self) -> Cow<'static, [Method]> {
+        Cow::Owned(vec![Method::GET, Method::POST])
     }
     
     fn path(&self) -> &str {
