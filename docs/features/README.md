@@ -30,28 +30,28 @@ This directory contains detailed feature specifications and implementation plans
 ## Implementation Strategy
 
 ### Phase 1: Foundation (Current Status: In Progress)
-- ✅ Basic transport protocol (Hello World)
-- ⬜ Complete extension framework
-- ⬜ Full transport protocol implementation
-- ⬜ Basic REST handler support
+- [x] Basic transport protocol (Hello World)
+- [ ] Complete extension framework
+- [ ] Full transport protocol implementation
+- [ ] Basic REST handler support
 
 ### Phase 2: Core Functionality
-- ⬜ Settings management system
-- ⬜ Action system with async support
-- ⬜ REST API registration and routing
-- ⬜ Basic client support
+- [ ] Settings management system
+- [ ] Action system with async support
+- [ ] REST API registration and routing
+- [ ] Basic client support
 
 ### Phase 3: Extension Points
-- ⬜ Search extension support
-- ⬜ Analysis extension support
-- ⬜ Script extension support
-- ⬜ Ingest processor support
+- [ ] Search extension support
+- [ ] Analysis extension support
+- [ ] Script extension support
+- [ ] Ingest processor support
 
 ### Phase 4: Advanced Features
-- ⬜ Mapper extensions
-- ⬜ Extension-to-extension communication
-- ⬜ Security integration
-- ⬜ Performance optimizations
+- [ ] Mapper extensions
+- [ ] Extension-to-extension communication
+- [ ] Security integration
+- [ ] Performance optimizations
 
 ## Design Principles
 
@@ -65,14 +65,14 @@ This directory contains detailed feature specifications and implementation plans
 
 | Feature | Java SDK | Python SDK | Rust SDK (Planned) |
 |---------|----------|------------|-------------------|
-| Extension Framework | ✅ Full | ✅ Basic | 🚧 Basic |
-| Transport Protocol | ✅ Full | ✅ Full | 🚧 Partial |
-| REST API | ✅ Full | ✅ Full | ⬜ Planned |
-| Settings | ✅ Full | ✅ Full | ⬜ Planned |
-| Search Extensions | ✅ Full | ⬜ None | ⬜ Planned |
-| Analysis Extensions | ✅ Full | ⬜ None | ⬜ Planned |
-| Script Extensions | ✅ Full | ⬜ None | ⬜ Planned |
-| Client Support | ✅ Multiple | ⬜ None | ⬜ Planned |
+| Extension Framework | Full | Basic | Basic (In Progress) |
+| Transport Protocol | Full | Full | Partial (In Progress) |
+| REST API | Full | Full | Planned |
+| Settings | Full | Full | Planned |
+| Search Extensions | Full | None | Planned |
+| Analysis Extensions | Full | None | Planned |
+| Script Extensions | Full | None | Planned |
+| Client Support | Multiple | None | Planned |
 
 ## Getting Started
 

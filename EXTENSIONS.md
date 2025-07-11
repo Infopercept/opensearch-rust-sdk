@@ -588,13 +588,13 @@ graph LR
 
 | Feature | Plugins | Rust Extensions |
 |---------|---------|-----------------|
-| Process Isolation | ❌ Same process | ✅ Separate process |
-| Memory Safety | ❌ JVM overhead | ✅ Rust guarantees |
-| Failure Impact | ❌ Can crash cluster | ✅ Isolated failures |
-| Resource Control | ❌ Shared resources | ✅ Independent limits |
-| Security | ❌ Full access | ✅ Sandboxed |
-| Deployment | ❌ Restart required | ✅ Hot deployment |
-| Performance | ✅ Direct calls | ✅ Optimized transport |
+| Process Isolation | Same process | Separate process |
+| Memory Safety | JVM overhead | Rust guarantees |
+| Failure Impact | Can crash cluster | Isolated failures |
+| Resource Control | Shared resources | Independent limits |
+| Security | Full access | Sandboxed |
+| Deployment | Restart required | Hot deployment |
+| Performance | Direct calls | Optimized transport |
 
 ## FAQ
 
