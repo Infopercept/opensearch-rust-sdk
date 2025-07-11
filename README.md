@@ -7,7 +7,7 @@
 [![OpenSearch](https://img.shields.io/badge/OpenSearch-3.0%2B-blue)](https://opensearch.org/)
 [![Build Status](https://img.shields.io/github/actions/workflow/status/Infopercept/opensearch-rust-sdk/rust.yml?branch=main)](https://github.com/Infopercept/opensearch-rust-sdk/actions)
 
-**A high-performance OpenSearch Extension SDK for Rust** 🦀
+**A high-performance OpenSearch Extension SDK for Rust**
 
 Build secure, scalable OpenSearch extensions with the safety and performance of Rust.
 
@@ -17,7 +17,7 @@ Build secure, scalable OpenSearch extensions with the safety and performance of 
 
 [Infopercept](https://www.infopercept.com) is a leading cybersecurity company providing comprehensive security solutions globally. As part of our commitment to the open-source community and secure software development, we're contributing the OpenSearch Rust SDK to enable developers to build robust extensions for OpenSearch using Rust's memory safety and performance advantages.
 
-## 🎯 Overview
+## Overview
 
 The OpenSearch Rust SDK provides a comprehensive framework for building OpenSearch extensions that:
 - Run as separate processes for better isolation and security
@@ -25,16 +25,16 @@ The OpenSearch Rust SDK provides a comprehensive framework for building OpenSear
 - Leverage Rust's memory safety guarantees
 - Support async/await patterns for efficient I/O operations
 
-## ✨ Features
+## Features
 
-- **🔐 Memory Safe**: Leverages Rust's ownership system to prevent common security vulnerabilities
-- **⚡ High Performance**: Zero-cost abstractions and efficient async I/O with Tokio
-- **🛡️ Process Isolation**: Extensions run separately, preventing cluster-wide failures
-- **📡 Binary Protocol**: Efficient transport layer communication with OpenSearch
-- **🔧 Type Safe**: Strong typing catches errors at compile time
-- **📦 Modular Design**: Clean separation of concerns with trait-based architecture
+- **Memory Safe**: Leverages Rust's ownership system to prevent common security vulnerabilities
+- **High Performance**: Zero-cost abstractions and efficient async I/O with Tokio
+- **Process Isolation**: Extensions run separately, preventing cluster-wide failures
+- **Binary Protocol**: Efficient transport layer communication with OpenSearch
+- **Type Safe**: Strong typing catches errors at compile time
+- **Modular Design**: Clean separation of concerns with trait-based architecture
 
-## 🚀 Quick Start
+## Quick Start
 
 ### Prerequisites
 
@@ -94,36 +94,42 @@ curl -XGET "http://localhost:9200/_extensions/_hello-world-rs/hello" \
   -u admin:YourPassword123!
 ```
 
-## 📚 Documentation
+## Documentation
 
 - [Architecture Overview](EXTENSIONS.md) - Comprehensive design documentation
 - [Developer Guide](DEVELOPER_GUIDE.md) - Step-by-step development instructions
 - [API Documentation](https://docs.rs/opensearch-sdk) - Complete API reference
 - [Feature Specifications](docs/features/) - Detailed feature implementation plans
 
-## 🏗️ Architecture
+## Architecture
 
 The SDK follows a modular architecture designed for extensibility:
 
-```
-┌─────────────────┐     ┌──────────────────┐
-│   OpenSearch    │────▶│ Extension Runner │
-│     Cluster     │◀────│                  │
-└─────────────────┘     └──────────────────┘
-         │                       │
-         │                       ▼
-         │              ┌──────────────────┐
-         │              │    Extension     │
-         │              │   Implementation │
-         │              └──────────────────┘
-         │                       │
-         ▼                       ▼
-┌─────────────────┐     ┌──────────────────┐
-│Transport Protocol│     │ REST Handlers   │
-└─────────────────┘     └──────────────────┘
+```mermaid
+graph TB
+    subgraph "OpenSearch Cluster"
+        OS[OpenSearch Node]
+        EM[Extensions Manager]
+    end
+    
+    subgraph "Extension Process"
+        ER[Extension Runner]
+        EXT[Extension Implementation]
+        TP[Transport Protocol]
+        RH[REST Handlers]
+    end
+    
+    OS <--> EM
+    EM <--> ER
+    ER --> EXT
+    EXT --> TP
+    EXT --> RH
+    
+    style OS fill:#f9f9f9,stroke:#333,stroke-width:2px
+    style EXT fill:#e1e1e1,stroke:#333,stroke-width:2px
 ```
 
-## 🛠️ Development
+## Development
 
 ### Building Your First Extension
 
@@ -177,7 +183,7 @@ cargo doc --open
 cargo bench
 ```
 
-## 🗺️ Roadmap
+## Roadmap
 
 ### Phase 1: Foundation (Current)
 - ✅ Basic transport protocol
@@ -204,7 +210,7 @@ cargo bench
 - ⬜ Migration tools
 - ⬜ Comprehensive documentation
 
-## 🤝 Contributing
+## Contributing
 
 We welcome contributions from the community! Please see our [Contributing Guidelines](CONTRIBUTING.md) for details on:
 
@@ -215,12 +221,12 @@ We welcome contributions from the community! Please see our [Contributing Guidel
 
 ### Getting Help
 
-- 📖 [Documentation](https://github.com/Infopercept/opensearch-rust-sdk/wiki)
-- 💬 [Discussions](https://github.com/Infopercept/opensearch-rust-sdk/discussions)
-- 🐛 [Issue Tracker](https://github.com/Infopercept/opensearch-rust-sdk/issues)
-- 📧 Email: opensource@infopercept.com
+- [Documentation](https://github.com/Infopercept/opensearch-rust-sdk/wiki)
+- [Discussions](https://github.com/Infopercept/opensearch-rust-sdk/discussions)
+- [Issue Tracker](https://github.com/Infopercept/opensearch-rust-sdk/issues)
+- Email: opensource@infopercept.com
 
-## 🔒 Security
+## Security
 
 Security is a top priority for this project. If you discover a security vulnerability, please report it responsibly:
 
@@ -229,7 +235,7 @@ Security is a top priority for this project. If you discover a security vulnerab
 
 See our [Security Policy](SECURITY.md) for more details.
 
-## 📊 Benchmarks
+## Benchmarks
 
 Performance comparisons with other SDK implementations:
 
@@ -242,14 +248,14 @@ Performance comparisons with other SDK implementations:
 
 *Benchmarks performed on standard hardware with default configurations*
 
-## 🙏 Acknowledgments
+## Acknowledgments
 
 This project builds upon the excellent work of:
 - The [OpenSearch](https://opensearch.org/) team for the extension architecture
 - The [Tokio](https://tokio.rs/) project for async runtime
 - The Rust community for the amazing ecosystem
 
-## 📄 License
+## License
 
 This project is licensed under the Apache License 2.0 - see the [LICENSE.txt](LICENSE.txt) file for details.
 
@@ -257,7 +263,7 @@ This project is licensed under the Apache License 2.0 - see the [LICENSE.txt](LI
 
 <div align="center">
 
-**Built with ❤️ by [Infopercept](https://www.infopercept.com)**
+**Built with by [Infopercept](https://www.infopercept.com)**
 
 *Empowering secure and scalable search solutions*
 
