@@ -2,3 +2,4 @@
 /Cargo.lock
 .env
 justfile
+opensearch-java-sdk-features.md
