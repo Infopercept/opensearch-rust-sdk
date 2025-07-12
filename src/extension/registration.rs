@@ -105,9 +105,12 @@ impl RegistrationProtocol {
         // Parse address to extract host and port
         let (host, port) = if let Some(colon_pos) = opensearch_addr.rfind(':') {
             let host = &opensearch_addr[..colon_pos];
-            let port = opensearch_addr[colon_pos + 1..]
+            let port_str = &opensearch_addr[colon_pos + 1..];
+            let port = port_str
                 .parse::<u16>()
-                .unwrap_or(9300);
+                .map_err(|_| ExtensionError::configuration(
+                    format!("Invalid port '{}' in address '{}'", port_str, opensearch_addr)
+                ))?;
             (host, port)
         } else {
             (opensearch_addr, 9300)
