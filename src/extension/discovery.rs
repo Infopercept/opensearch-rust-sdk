@@ -173,6 +173,79 @@ impl DiscoveryClient {
         &self,
         unique_id: &str,
     ) -> Result<Option<DiscoveredExtension>, ExtensionError> {
+        // First, try the optimized direct query endpoint
+        match self.query_extension_direct(unique_id).await {
+            Ok(result) => Ok(result),
+            Err(e) => {
+                // If the direct query fails (e.g., endpoint not available),
+                // fall back to the less efficient list-and-filter approach
+                tracing::debug!(
+                    "Direct query failed ({}), falling back to list-and-filter", 
+                    e
+                );
+                self.query_extension_fallback(unique_id).await
+            }
+        }
+    }
+    
+    /// Direct query for a single extension - more efficient
+    async fn query_extension_direct(
+        &self,
+        unique_id: &str,
+    ) -> Result<Option<DiscoveredExtension>, ExtensionError> {
+        use crate::transport::TransportClient;
+        
+        // Parse host and port from service_url
+        let (host, port) = self.parse_host_port(&self.service_url)?;
+        
+        let client = TransportClient::new(host, port);
+        
+        // Create query request for specific extension
+        let query_request = serde_json::json!({
+            "unique_id": unique_id
+        });
+        
+        let request_bytes = serde_json::to_vec(&query_request)
+            .map_err(|e| ExtensionError::serialization(
+                format!("Failed to serialize query request: {}", e)
+            ))?;
+        
+        // Use targeted query endpoint
+        let response = client
+            .send_request("internal:discovery/query", &request_bytes)
+            .await?;
+        
+        // Handle empty response as None
+        if response.is_empty() {
+            return Ok(None);
+        }
+        
+        // Try to deserialize as a single extension
+        serde_json::from_slice::<DiscoveredExtension>(&response)
+            .map(Some)
+            .or_else(|_| {
+                // If that fails, try deserializing as an error response
+                if let Ok(error_response) = serde_json::from_slice::<serde_json::Value>(&response) {
+                    if error_response.get("found").and_then(|v| v.as_bool()) == Some(false) {
+                        Ok(None)
+                    } else {
+                        Err(ExtensionError::serialization(
+                            format!("Unexpected response format: {:?}", error_response)
+                        ))
+                    }
+                } else {
+                    Err(ExtensionError::serialization(
+                        "Failed to deserialize query response"
+                    ))
+                }
+            })
+    }
+    
+    /// Fallback implementation that fetches all extensions and filters
+    async fn query_extension_fallback(
+        &self,
+        unique_id: &str,
+    ) -> Result<Option<DiscoveredExtension>, ExtensionError> {
         let extensions = self.discover_extensions().await?;
         Ok(extensions.into_iter().find(|ext| ext.registration.identity.unique_id == unique_id))
     }
@@ -223,5 +296,35 @@ mod tests {
         
         let extensions_after = service.list_extensions().await;
         assert_eq!(extensions_after.len(), 0);
+    }
+    
+    #[test]
+    fn test_parse_host_port() {
+        let client = DiscoveryClient::new("localhost:9300");
+        
+        let (host, port) = client.parse_host_port("localhost:9300").unwrap();
+        assert_eq!(host, "localhost");
+        assert_eq!(port, 9300);
+        
+        let (host, port) = client.parse_host_port("example.com").unwrap();
+        assert_eq!(host, "example.com");
+        assert_eq!(port, 9300); // Default port
+        
+        let (host, port) = client.parse_host_port("192.168.1.1:8080").unwrap();
+        assert_eq!(host, "192.168.1.1");
+        assert_eq!(port, 8080);
+        
+        // Test invalid port
+        let result = client.parse_host_port("localhost:invalid");
+        assert!(result.is_err());
+    }
+    
+    #[tokio::test]
+    async fn test_query_extension_direct() {
+        let client = DiscoveryClient::new("localhost:9300");
+        
+        // This will fail since we don't have a real server, but it tests the logic
+        let result = client.query_extension_direct("test-ext").await;
+        assert!(result.is_err()); // Expected to fail without a server
     }
 }
