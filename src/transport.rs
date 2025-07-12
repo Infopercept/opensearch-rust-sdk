@@ -1,5 +1,9 @@
+pub mod client;
+
 use std::io::{Error, ErrorKind, Read, Write};
 use std::net::TcpStream;
+
+pub use client::TransportClient;
 
 const MARKER_BYTES: &[u8; 2] = b"ES";
 const REQUEST_ID_SIZE: usize = 8;

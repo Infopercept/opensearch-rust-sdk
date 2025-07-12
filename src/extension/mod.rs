@@ -1,0 +1,25 @@
+pub mod builder;
+pub mod context;
+pub mod dependency;
+pub mod discovery;
+pub mod error;
+pub mod health;
+pub mod lifecycle;
+pub mod metadata;
+pub mod registration;
+pub mod resilience;
+pub mod runner;
+pub mod traits;
+
+pub use builder::ExtensionBuilder;
+pub use context::ExtensionContext;
+pub use dependency::ExtensionDependency;
+pub use discovery::{DiscoveryService, DiscoveryClient};
+pub use error::ExtensionError;
+pub use health::{HealthService, HealthStatus, HealthCheck};
+pub use lifecycle::{LifecycleManager, ExtensionState};
+pub use metadata::{ExtensionMetadata, ExtensionManifest};
+pub use registration::{ExtensionRegistration, ExtensionIdentity};
+pub use resilience::{RetryPolicy, CircuitBreaker, retry_with_policy};
+pub use runner::ExtensionRunner;
+pub use traits::Extension;
