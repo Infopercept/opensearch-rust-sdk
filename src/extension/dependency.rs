@@ -22,7 +22,8 @@ impl ExtensionDependency {
     }
     
     pub fn satisfies(&self, other_version: &Version) -> bool {
-        self.version <= *other_version
+        // A dependency is satisfied if the provided version is >= the required version
+        *other_version >= self.version
     }
 }
 
@@ -131,10 +132,11 @@ mod tests {
     #[test]
     fn test_dependency_satisfies() {
         let dep = ExtensionDependency::from_str("test-ext", "1.0.0").unwrap();
-        assert!(dep.satisfies(&Version::new(1, 0, 0)));
-        assert!(dep.satisfies(&Version::new(1, 1, 0)));
-        assert!(dep.satisfies(&Version::new(2, 0, 0)));
-        assert!(!dep.satisfies(&Version::new(0, 9, 0)));
+        // Dependency requires version 1.0.0
+        assert!(dep.satisfies(&Version::new(1, 0, 0))); // Exact match satisfies
+        assert!(dep.satisfies(&Version::new(1, 1, 0))); // Higher minor version satisfies
+        assert!(dep.satisfies(&Version::new(2, 0, 0))); // Higher major version satisfies
+        assert!(!dep.satisfies(&Version::new(0, 9, 0))); // Lower version does not satisfy
     }
     
     #[test]

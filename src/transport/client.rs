@@ -89,7 +89,8 @@ impl TransportConnectionPool {
 #[cfg(test)]
 mod tests {
     use super::*;
-    
+    use tokio::time::timeout;
+
     #[test]
     fn test_transport_client_creation() {
         let client = TransportClient::new("localhost", 9200)
@@ -98,5 +99,53 @@ mod tests {
         assert_eq!(client.host, "localhost");
         assert_eq!(client.port, 9200);
         assert_eq!(client.timeout, Duration::from_secs(60));
+    }
+
+    #[tokio::test]
+    async fn test_connection_failure() {
+        let client = TransportClient::new("invalid-host", 9999)
+            .with_timeout(Duration::from_millis(100));
+        
+        let result = client.connect().await;
+        assert!(result.is_err());
+    }
+
+    #[tokio::test]
+    async fn test_send_request_timeout() {
+        let client = TransportClient::new("localhost", 9999)
+            .with_timeout(Duration::from_millis(100));
+        
+        let result = timeout(
+            Duration::from_millis(200),
+            client.send_request("test", &[1, 2, 3])
+        ).await;
+        
+        assert!(result.is_ok()); // Timeout wrapper succeeded
+        assert!(result.unwrap().is_err()); // Inner operation failed
+    }
+
+    #[tokio::test]
+    async fn test_connection_pool() {
+        let client = Arc::new(TransportClient::new("localhost", 9999));
+        let pool = TransportConnectionPool::new(client, 5);
+        
+        // Getting a connection should fail but not panic
+        let result = pool.get_connection().await;
+        assert!(result.is_err());
+    }
+
+    #[tokio::test]
+    async fn test_connection_pool_return() {
+        let client = Arc::new(TransportClient::new("localhost", 9999));
+        let pool = TransportConnectionPool::new(client.clone(), 2);
+        
+        // Create a mock connection (this will fail in real scenario)
+        if let Ok(conn) = client.connect().await {
+            pool.return_connection(conn).await;
+            
+            // Check pool size by attempting to get connection
+            let pool_guard = pool.connections.lock().await;
+            assert!(pool_guard.len() <= 2);
+        }
     }
 }

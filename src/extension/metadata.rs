@@ -1,5 +1,5 @@
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
+use std::collections::{HashMap, VecDeque};
 use semver::Version;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -57,7 +57,7 @@ pub struct OsInfo {
 pub struct ExtensionMetrics {
     pub requests_total: u64,
     pub requests_failed: u64,
-    pub requests_duration_ms: Vec<f64>,
+    pub requests_duration_ms: VecDeque<f64>,
     pub memory_usage_bytes: Option<u64>,
     pub cpu_usage_percent: Option<f32>,
     pub uptime_seconds: u64,
@@ -73,10 +73,10 @@ impl ExtensionMetrics {
         if !success {
             self.requests_failed += 1;
         }
-        self.requests_duration_ms.push(duration_ms);
+        self.requests_duration_ms.push_back(duration_ms);
         
         if self.requests_duration_ms.len() > 1000 {
-            self.requests_duration_ms.remove(0);
+            self.requests_duration_ms.pop_front();
         }
     }
     

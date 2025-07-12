@@ -5,7 +5,8 @@
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE.txt)
 [![Rust](https://img.shields.io/badge/rust-%231.70%2B-orange.svg)](https://www.rust-lang.org)
 [![OpenSearch](https://img.shields.io/badge/OpenSearch-3.0%2B-blue)](https://opensearch.org/)
-[![Build Status](https://img.shields.io/github/actions/workflow/status/Infopercept/opensearch-rust-sdk/rust.yml?branch=main)](https://github.com/Infopercept/opensearch-rust-sdk/actions)
+<!-- [![Build Status](https://img.shields.io/github/actions/workflow/status/Infopercept/opensearch-rust-sdk/rust.yml?branch=main)](https://github.com/Infopercept/opensearch-rust-sdk/actions) -->
+![CodeRabbit Pull Request Reviews](https://img.shields.io/coderabbit/prs/github/Infopercept/opensearch-rust-sdk?utm_source=oss&utm_medium=github&utm_campaign=Infopercept%2Fopensearch-rust-sdk&labelColor=171717&color=FF570A&link=https%3A%2F%2Fcoderabbit.ai&label=CodeRabbit+Reviews)
 
 **A high-performance OpenSearch Extension SDK for Rust**
 

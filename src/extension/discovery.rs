@@ -136,10 +136,29 @@ impl DiscoveryClient {
         }
     }
     
+    fn parse_host_port(&self, url: &str) -> Result<(String, u16), ExtensionError> {
+        // Simple host:port parsing
+        if let Some(colon_pos) = url.rfind(':') {
+            let host = &url[..colon_pos];
+            let port_str = &url[colon_pos + 1..];
+            let port = port_str.parse::<u16>()
+                .map_err(|_| ExtensionError::configuration(
+                    format!("Invalid port in service URL: {}", port_str)
+                ))?;
+            Ok((host.to_string(), port))
+        } else {
+            // Default to port 9300 if not specified
+            Ok((url.to_string(), 9300))
+        }
+    }
+    
     pub async fn discover_extensions(&self) -> Result<Vec<DiscoveredExtension>, ExtensionError> {
         use crate::transport::TransportClient;
         
-        let client = TransportClient::new(&self.service_url, 9300);
+        // Parse host and port from service_url
+        let (host, port) = self.parse_host_port(&self.service_url)?;
+        
+        let client = TransportClient::new(host, port);
         let response = client
             .send_request("internal:discovery/list", &[])
             .await?;

@@ -42,7 +42,7 @@ impl Extension for HelloExtension {
     async fn initialize(&mut self, context: &ExtensionContext) -> Result<(), ExtensionError> {
         info!("Initializing Hello Extension");
         
-        if let Some(greeting) = context.settings.get_string("hello.greeting") {
+        if let Ok(Some(greeting)) = context.settings.get_string("hello.greeting") {
             info!("Custom greeting: {}", greeting);
         }
         
@@ -67,10 +67,26 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     
     let extension = HelloExtension::new();
     
+    // Note: In production, you can load extension configuration from hello.json
+    // using the `just register-extension` command which reads examples/hello/hello.json
+    // and registers the extension with OpenSearch.
+    //
+    // The hello.json file contains:
+    // {
+    //     "name": "Hello World",
+    //     "uniqueId": "hello-world-rs",
+    //     "hostAddress": "127.0.0.1",
+    //     "port": "1234",
+    //     "version": "0.1.0",
+    //     "opensearchVersion": "3.0.0",
+    //     "minimumCompatibleVersion": "3.0.0"
+    // }
+    //
+    // For now, we're building the extension programmatically:
     let mut runner = ExtensionBuilder::new("Hello Extension")
-        .unique_id("hello-extension")
-        .version("1.0.0")
-        .port(1234)
+        .unique_id("hello-world-rs")  // Match the uniqueId in hello.json
+        .version("0.1.0")             // Match the version in hello.json
+        .port(1234)                   // Match the port in hello.json
         .transport_endpoint("localhost", 9300)
         .setting("hello.greeting", "Hello from Rust!")
         .setting("hello.max_messages", 1000i64)

@@ -2,6 +2,7 @@ use std::sync::Arc;
 use tokio::runtime::Runtime;
 use tracing::Level;
 use crate::transport::TransportClient;
+use crate::extension::ExtensionError;
 use std::collections::HashMap;
 
 pub type Logger = tracing::Span;
@@ -28,50 +29,60 @@ impl Settings {
         }
     }
     
-    pub fn set(&self, key: impl Into<String>, value: impl Into<SettingValue>) {
-        let mut values = self.values.write().unwrap();
+    pub fn set(&self, key: impl Into<String>, value: impl Into<SettingValue>) -> Result<(), ExtensionError> {
+        let mut values = self.values.write()
+            .map_err(|_| ExtensionError::configuration("Settings lock poisoned"))?;
         values.insert(key.into(), value.into());
+        Ok(())
     }
     
-    pub fn get(&self, key: &str) -> Option<SettingValue> {
-        let values = self.values.read().unwrap();
-        values.get(key).cloned()
+    pub fn get(&self, key: &str) -> Result<Option<SettingValue>, ExtensionError> {
+        let values = self.values.read()
+            .map_err(|_| ExtensionError::configuration("Settings lock poisoned"))?;
+        Ok(values.get(key).cloned())
     }
     
-    pub fn get_string(&self, key: &str) -> Option<String> {
+    pub fn get_string(&self, key: &str) -> Result<Option<String>, ExtensionError> {
         match self.get(key)? {
-            SettingValue::String(s) => Some(s),
-            _ => None,
+            Some(SettingValue::String(s)) => Ok(Some(s)),
+            Some(_) => Ok(None),
+            None => Ok(None),
         }
     }
     
-    pub fn get_integer(&self, key: &str) -> Option<i64> {
+    pub fn get_integer(&self, key: &str) -> Result<Option<i64>, ExtensionError> {
         match self.get(key)? {
-            SettingValue::Integer(i) => Some(i),
-            _ => None,
+            Some(SettingValue::Integer(i)) => Ok(Some(i)),
+            Some(_) => Ok(None),
+            None => Ok(None),
         }
     }
     
-    pub fn get_float(&self, key: &str) -> Option<f64> {
+    pub fn get_float(&self, key: &str) -> Result<Option<f64>, ExtensionError> {
         match self.get(key)? {
-            SettingValue::Float(f) => Some(f),
-            _ => None,
+            Some(SettingValue::Float(f)) => Ok(Some(f)),
+            Some(_) => Ok(None),
+            None => Ok(None),
         }
     }
     
-    pub fn get_boolean(&self, key: &str) -> Option<bool> {
+    pub fn get_boolean(&self, key: &str) -> Result<Option<bool>, ExtensionError> {
         match self.get(key)? {
-            SettingValue::Boolean(b) => Some(b),
-            _ => None,
+            Some(SettingValue::Boolean(b)) => Ok(Some(b)),
+            Some(_) => Ok(None),
+            None => Ok(None),
         }
     }
     
-    pub fn merge(&mut self, other: Settings) {
-        let mut values = self.values.write().unwrap();
-        let other_values = other.values.read().unwrap();
+    pub fn merge(&mut self, other: &Settings) -> Result<(), ExtensionError> {
+        let mut values = self.values.write()
+            .map_err(|_| ExtensionError::configuration("Settings lock poisoned"))?;
+        let other_values = other.values.read()
+            .map_err(|_| ExtensionError::configuration("Settings lock poisoned"))?;
         for (key, value) in other_values.iter() {
             values.insert(key.clone(), value.clone());
         }
+        Ok(())
     }
 }
 
@@ -181,19 +192,22 @@ impl ExtensionContextBuilder {
         self
     }
     
-    pub fn build(self) -> Result<ExtensionContext, String> {
+    pub fn build(self) -> Result<ExtensionContext, ExtensionError> {
         let transport_client = self.transport_client
-            .ok_or_else(|| "Transport client is required".to_string())?;
+            .ok_or_else(|| ExtensionError::configuration("Transport client is required"))?;
         
-        let thread_pool = self.thread_pool
-            .unwrap_or_else(|| {
-                Arc::new(
-                    tokio::runtime::Builder::new_multi_thread()
-                        .enable_all()
-                        .build()
-                        .expect("Failed to create thread pool")
-                )
-            });
+        let thread_pool = match self.thread_pool {
+            Some(pool) => pool,
+            None => {
+                tokio::runtime::Builder::new_multi_thread()
+                    .enable_all()
+                    .build()
+                    .map(Arc::new)
+                    .map_err(|e| ExtensionError::initialization(
+                        format!("Failed to create thread pool: {}", e)
+                    ))?
+            }
+        };
         
         Ok(ExtensionContext::new(
             self.settings,
@@ -217,31 +231,31 @@ mod tests {
     fn test_settings() {
         let settings = Settings::new();
         
-        settings.set("test.string", "value");
-        settings.set("test.integer", 42);
-        settings.set("test.float", 3.14159);
-        settings.set("test.boolean", true);
+        settings.set("test.string", "value").unwrap();
+        settings.set("test.integer", 42).unwrap();
+        settings.set("test.float", 3.14159).unwrap();
+        settings.set("test.boolean", true).unwrap();
         
-        assert_eq!(settings.get_string("test.string"), Some("value".to_string()));
-        assert_eq!(settings.get_integer("test.integer"), Some(42));
-        assert_eq!(settings.get_float("test.float"), Some(3.14159));
-        assert_eq!(settings.get_boolean("test.boolean"), Some(true));
+        assert_eq!(settings.get_string("test.string").unwrap(), Some("value".to_string()));
+        assert_eq!(settings.get_integer("test.integer").unwrap(), Some(42));
+        assert_eq!(settings.get_float("test.float").unwrap(), Some(3.14159));
+        assert_eq!(settings.get_boolean("test.boolean").unwrap(), Some(true));
     }
     
     #[test]
     fn test_settings_merge() {
         let mut settings1 = Settings::new();
-        settings1.set("key1", "value1");
-        settings1.set("key2", "value2");
+        settings1.set("key1", "value1").unwrap();
+        settings1.set("key2", "value2").unwrap();
         
         let settings2 = Settings::new();
-        settings2.set("key2", "updated");
-        settings2.set("key3", "value3");
+        settings2.set("key2", "updated").unwrap();
+        settings2.set("key3", "value3").unwrap();
         
-        settings1.merge(settings2);
+        settings1.merge(&settings2).unwrap();
         
-        assert_eq!(settings1.get_string("key1"), Some("value1".to_string()));
-        assert_eq!(settings1.get_string("key2"), Some("updated".to_string()));
-        assert_eq!(settings1.get_string("key3"), Some("value3".to_string()));
+        assert_eq!(settings1.get_string("key1").unwrap(), Some("value1".to_string()));
+        assert_eq!(settings1.get_string("key2").unwrap(), Some("updated".to_string()));
+        assert_eq!(settings1.get_string("key3").unwrap(), Some("value3".to_string()));
     }
 }

@@ -139,9 +139,21 @@ impl ExtensionRunner {
         );
         
         let identity = ExtensionIdentity::from_extension(&**ext);
+        
+        // Get the actual bind address from settings or use default
+        let bind_address = self.context.settings
+            .get("bind_address")
+            .ok()
+            .flatten()
+            .and_then(|v| match v {
+                crate::extension::context::SettingValue::String(s) => Some(s),
+                _ => None
+            })
+            .unwrap_or_else(|| "0.0.0.0".to_string());
+        
         let registration = ExtensionRegistration::new(
             identity,
-            "0.0.0.0".to_string(),
+            bind_address,
             self.port,
         );
         

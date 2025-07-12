@@ -1,4 +1,3 @@
-use std::fmt;
 use thiserror::Error;
 
 #[derive(Error, Debug)]
@@ -76,44 +75,5 @@ impl ExtensionError {
     
     pub fn unknown<S: Into<String>>(msg: S) -> Self {
         ExtensionError::Unknown(msg.into())
-    }
-}
-
-#[derive(Debug)]
-pub struct ExtensionResult<T> {
-    pub value: Option<T>,
-    pub error: Option<ExtensionError>,
-}
-
-impl<T> ExtensionResult<T> {
-    pub fn ok(value: T) -> Self {
-        ExtensionResult {
-            value: Some(value),
-            error: None,
-        }
-    }
-    
-    pub fn err(error: ExtensionError) -> Self {
-        ExtensionResult {
-            value: None,
-            error: Some(error),
-        }
-    }
-    
-    pub fn is_ok(&self) -> bool {
-        self.error.is_none()
-    }
-    
-    pub fn is_err(&self) -> bool {
-        self.error.is_some()
-    }
-}
-
-impl<T> fmt::Display for ExtensionResult<T> {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match &self.error {
-            Some(e) => write!(f, "Error: {}", e),
-            None => write!(f, "Success"),
-        }
     }
 }

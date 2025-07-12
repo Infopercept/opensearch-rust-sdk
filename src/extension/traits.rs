@@ -23,3 +23,39 @@ pub trait Extension: Send + Sync + 'static {
     
     async fn shutdown(&mut self) -> Result<(), ExtensionError>;
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use async_trait::async_trait;
+
+    struct TestExtension;
+
+    #[async_trait]
+    impl Extension for TestExtension {
+        fn name(&self) -> &str { "test" }
+        fn unique_id(&self) -> &str { "test-id" }
+        fn version(&self) -> &str { "1.0.0" }
+        fn opensearch_version(&self) -> &str { "3.0.0" }
+        
+        async fn initialize(&mut self, _context: &ExtensionContext) -> Result<(), ExtensionError> {
+            Ok(())
+        }
+        
+        async fn shutdown(&mut self) -> Result<(), ExtensionError> {
+            Ok(())
+        }
+    }
+
+    #[test]
+    fn test_default_java_version() {
+        let ext = TestExtension;
+        assert_eq!(ext.java_version(), "11");
+    }
+
+    #[test]
+    fn test_default_dependencies() {
+        let ext = TestExtension;
+        assert_eq!(ext.dependencies(), vec![]);
+    }
+}

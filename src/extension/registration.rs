@@ -102,7 +102,18 @@ impl RegistrationProtocol {
     ) -> Result<RegistrationResponse, ExtensionError> {
         use crate::transport::TransportClient;
         
-        let client = TransportClient::new(opensearch_addr, 9300);
+        // Parse address to extract host and port
+        let (host, port) = if let Some(colon_pos) = opensearch_addr.rfind(':') {
+            let host = &opensearch_addr[..colon_pos];
+            let port = opensearch_addr[colon_pos + 1..]
+                .parse::<u16>()
+                .unwrap_or(9300);
+            (host, port)
+        } else {
+            (opensearch_addr, 9300)
+        };
+        
+        let client = TransportClient::new(host, port);
         
         let registration_bytes = self.serialize_registration()?;
         
@@ -184,5 +195,53 @@ mod tests {
         
         let addr = registration.socket_address().unwrap();
         assert_eq!(addr.to_string(), "127.0.0.1:1234");
+    }
+
+    #[test]
+    fn test_registration_protocol_serialization() {
+        let identity = ExtensionIdentity::from_extension(&TestExtension);
+        let registration = ExtensionRegistration::new(identity, "127.0.0.1".to_string(), 1234);
+        let protocol = RegistrationProtocol::new(registration.clone());
+        
+        // Test serialization
+        let result = protocol.serialize_registration();
+        assert!(result.is_ok());
+        let bytes = result.unwrap();
+        assert!(!bytes.is_empty());
+        
+        // Verify it's valid JSON
+        let parsed: Result<ExtensionRegistration, _> = serde_json::from_slice(&bytes);
+        assert!(parsed.is_ok());
+        assert_eq!(parsed.unwrap().identity.unique_id, registration.identity.unique_id);
+    }
+
+    #[test]
+    fn test_registration_response_deserialization() {
+        let protocol = RegistrationProtocol::new(ExtensionRegistration::new(
+            ExtensionIdentity::from_extension(&TestExtension),
+            "127.0.0.1".to_string(),
+            1234
+        ));
+        
+        // Test successful response
+        let success_json = r#"{"success": true, "message": "Registered", "cluster_name": "test-cluster"}"#;
+        let result = protocol.deserialize_response(success_json.as_bytes());
+        assert!(result.is_ok());
+        let response = result.unwrap();
+        assert!(response.success);
+        assert_eq!(response.cluster_name, Some("test-cluster".to_string()));
+        
+        // Test error response
+        let error_json = r#"{"success": false, "message": "Failed to register"}"#;
+        let result = protocol.deserialize_response(error_json.as_bytes());
+        assert!(result.is_ok());
+        let response = result.unwrap();
+        assert!(!response.success);
+        assert_eq!(response.message, Some("Failed to register".to_string()));
+        
+        // Test malformed response
+        let malformed = b"not json";
+        let result = protocol.deserialize_response(malformed);
+        assert!(result.is_err());
     }
 }

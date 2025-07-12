@@ -61,11 +61,11 @@ impl ExtensionBuilder {
     }
     
     pub fn setting<T: Into<crate::extension::context::SettingValue>>(
-        mut self,
+        self,
         key: impl Into<String>,
         value: T,
     ) -> Self {
-        self.settings.set(key, value);
+        self.settings.set(key, value).unwrap_or(());
         self
     }
     
@@ -112,19 +112,22 @@ impl ExtensionBuilder {
             TransportClient::new(self.transport_host, self.transport_port)
         );
         
-        let thread_pool = self.thread_pool.unwrap_or_else(|| {
-            Arc::new(
+        let thread_pool = match self.thread_pool {
+            Some(pool) => pool,
+            None => {
                 Runtime::new()
-                    .expect("Failed to create runtime")
-            )
-        });
+                    .map(Arc::new)
+                    .map_err(|e| ExtensionError::initialization(
+                        format!("Failed to create runtime: {}", e)
+                    ))?
+            }
+        };
         
         let context = ExtensionContext::builder()
             .settings(self.settings)
             .transport_client(transport_client)
             .thread_pool(thread_pool)
-            .build()
-            .map_err(ExtensionError::configuration)?;
+            .build()?;
         
         ExtensionRunner::new(Box::new(extension), context, self.port)
     }
