@@ -3,7 +3,7 @@ use std::time::Duration;
 use tokio::net::TcpListener;
 use tokio::signal;
 use tokio::sync::RwLock;
-use tracing::{info, error};
+use tracing::{info, error, warn};
 
 use crate::extension::{
     Extension, ExtensionContext, ExtensionError,
@@ -127,6 +127,8 @@ impl ExtensionRunner {
     }
     
     async fn register_with_opensearch(&self) -> Result<(), ExtensionError> {
+        use crate::extension::registration::{ExtensionIdentity, ExtensionRegistration, RegistrationProtocol};
+        
         let ext = self.extension.read().await;
         
         info!(
@@ -135,6 +137,28 @@ impl ExtensionRunner {
             ext.unique_id(),
             ext.version()
         );
+        
+        let identity = ExtensionIdentity::from_extension(&**ext);
+        let registration = ExtensionRegistration::new(
+            identity,
+            "0.0.0.0".to_string(),
+            self.port,
+        );
+        
+        let protocol = RegistrationProtocol::new(registration);
+        
+        match protocol.register_with_opensearch("localhost").await {
+            Ok(response) => {
+                if response.success {
+                    info!("Successfully registered with OpenSearch cluster: {:?}", response.cluster_name);
+                } else {
+                    warn!("Registration failed: {:?}", response.message);
+                }
+            }
+            Err(e) => {
+                warn!("Failed to register with OpenSearch: {}", e);
+            }
+        }
         
         Ok(())
     }
